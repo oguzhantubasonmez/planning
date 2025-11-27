@@ -170,11 +170,11 @@ class DataGrid {
             'agirlik': 'Net Ağırlık',
             'brutAgirlik': 'Brüt Ağırlık',
             'toplamSure': 'Toplam Süre',
-            'planMiktar': 'Plan Miktar (Kalıp)',
+            'planMiktar': 'Sipariş Miktar (Kalıp)',
             'sevkMiktari': 'Sevk Miktarı',
             'bakiyeMiktar': 'Bakiye Miktar',
             'figurSayisi': 'Figür Sayısı',
-            'siparisMiktarHesaplanan': 'Sipariş Miktar',
+            'siparisMiktarHesaplanan': 'Sipariş Miktar (Adet)',
             'gercekMiktar': 'Gerçekleşen Miktar',
             'planlananMiktar': 'Planlanan Miktar',
             'planlananTarih': 'Planlanan Tarih',
@@ -257,11 +257,11 @@ class DataGrid {
             'agirlik': 'Net Ağırlık',
             'brutAgirlik': 'Brüt Ağırlık',
             'toplamSure': 'Toplam Süre',
-            'planMiktar': 'Plan Miktar (Kalıp)',
+            'planMiktar': 'Sipariş Miktar (Kalıp)',
             'sevkMiktari': 'Sevk Miktarı',
             'bakiyeMiktar': 'Bakiye Miktar',
             'figurSayisi': 'Figür Sayısı',
-            'siparisMiktarHesaplanan': 'Sipariş Miktar',
+            'siparisMiktarHesaplanan': 'Sipariş Miktar (Adet)',
             'gercekMiktar': 'Gerçekleşen Miktar',
             'planlananMiktar': 'Planlanan Miktar',
             'planlananTarih': 'Planlanan Tarih',
@@ -2041,13 +2041,13 @@ class DataGrid {
         });
         
         // Event listener ekle
-        breakdownRow.addEventListener('click', async () => {
+            breakdownRow.addEventListener('click', async () => {
             const targetDate = isPlanned ? (item.planlananTarih || item.onerilenTeslimTarih) : item.onerilenTeslimTarih;
-            if (targetDate && window.chartManager) {
-                const week = this.getWeekFromDate(targetDate);
+                if (targetDate && window.chartManager) {
+                    const week = this.getWeekFromDate(targetDate);
                 await window.chartManager.focusOnWeek(week, targetDate);
-            }
-        });
+                }
+            });
         
         return breakdownRow;
     }
@@ -5569,7 +5569,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">İş Emri No</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Firma</th>';
-        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Plan Miktar</th>';
+        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Plan Tarihi</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Durum</th>';
@@ -6221,9 +6221,9 @@ class DataGrid {
             { key: 'agirlik', label: 'Net Ağırlık', value: item.agirlik || 0 },
             { key: 'brutAgirlik', label: 'Brüt Ağırlık', value: item.brutAgirlik || 0 },
             { key: 'toplamSure', label: 'Toplam Süre', value: item.toplamSure || 0 },
-            { key: 'planMiktar', label: 'Plan Miktar (Kalıp)', value: item.planMiktar || 0 },
+            { key: 'planMiktar', label: 'Sipariş Miktar (Kalıp)', value: item.planMiktar || 0 },
             { key: 'figurSayisi', label: 'Figür Sayısı', value: item.figurSayisi || 0 },
-            { key: 'siparisMiktarHesaplanan', label: 'Sipariş Miktar', value: (() => {
+            { key: 'siparisMiktarHesaplanan', label: 'Sipariş Miktar (Adet)', value: (() => {
                 const planMiktar = item.planMiktar || 0;
                 const figurSayisi = item.figurSayisi || 0;
                 return planMiktar * figurSayisi;
@@ -11110,11 +11110,11 @@ class DataGrid {
             'agirlik': 'Net Ağırlık',
             'brutAgirlik': 'Brüt Ağırlık',
             'toplamSure': 'Toplam Süre',
-            'planMiktar': 'Plan Miktar (Kalıp)',
+            'planMiktar': 'Sipariş Miktar (Kalıp)',
             'sevkMiktari': 'Sevk Miktarı',
             'bakiyeMiktar': 'Bakiye Miktar',
             'figurSayisi': 'Figür Sayısı',
-            'siparisMiktarHesaplanan': 'Sipariş Miktar',
+            'siparisMiktarHesaplanan': 'Sipariş Miktar (Adet)',
             'gercekMiktar': 'Gerçekleşen Miktar',
             'planlananMiktar': 'Planlanan Miktar',
             'planlananTarih': 'Planlanan Tarih',
@@ -12056,7 +12056,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme Kodu</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Firma</th>';
-        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Plan Miktar</th>';
+        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
         html += '</tr></thead><tbody>';
         

@@ -1796,7 +1796,8 @@ app.put('/api/planning/update', async (req, res) => {
         
         // MAK_ID'yi al
         let updateMakIdForSplit = null;
-        if (targetMachine) {
+        if (targetMachine && currentPlanResult.rows.length > 0) {
+            const isemriId = currentPlanResult.rows[0][0];
             const makIdQuery = `
                 WITH ISEMRI_FILTERED AS (
                     SELECT * 
@@ -1807,7 +1808,7 @@ app.put('/api/planning/update', async (req, res) => {
                 FROM ERPREADONLY.V_ISEMRI_DETAY 
                 WHERE ISEMRI_ID = :isemriId AND MAK_AD = :targetMachine
             `;
-            const makIdResult = await connection.execute(makIdQuery, { isemriId: currentPlan.ISEMRI_ID, targetMachine });
+            const makIdResult = await connection.execute(makIdQuery, { isemriId: isemriId, targetMachine });
             if (makIdResult.rows.length > 0 && makIdResult.rows[0][0]) {
                 updateMakIdForSplit = makIdResult.rows[0][0];
             }
