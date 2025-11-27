@@ -309,26 +309,14 @@ app.post('/api/planning', async (req, res) => {
             // planId out bind
             try { createdPlanIdOut = insertRes?.outBinds?.planId?.[0] ?? null; } catch (_) { createdPlanIdOut = null; }
             
-            // 2. Kalan kısmı "Beklemede" olarak kaydet
+            // NOT: Kalan kısmı "Beklemede" olarak veritabanına kaydetmiyoruz
+            // Bekleyen miktar frontend'de dinamik olarak hesaplanacak (sipariş miktarı - toplam planlanan)
             const kalanMiktar = siparisMiktar - planlananMiktar;
-            const insertKalanQuery = `
-                INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                VALUES (:isemriId, NULL, 2, :kalanMiktar, 'BEKLEMEDE', :targetMachine, :targetMakId, :aciklama)
-            `;
             
-            await connection.execute(insertKalanQuery, {
-                isemriId: isemriId,
-                kalanMiktar: kalanMiktar,
-                targetMachine: targetMachine,
-                targetMakId: targetMakId,
-                aciklama: aciklama || null
-            });
-            
-            console.log('Kısmi planlama başarıyla kaydedildi:', {
+            console.log('Kısmi planlama başarıyla kaydedildi (bekleyen miktar frontend\'de hesaplanacak):', {
                 planlananMiktar,
                 kalanMiktar,
-                planId: bindVars.planId
+                planId: createdPlanIdOut
             });
             
         } else {
@@ -2676,6 +2664,7 @@ app.get('/api/data', async (req, res) => {
             FROM ERPREADONLY.PLANLAMA_VERI PV
             INNER JOIN ISEMRI_FILTERED IF ON PV.ISEMRI_ID = IF.ISEMRI_ID
             LEFT JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID AND PV.ISEMRI_PARCA_NO = VD.ISEMRI_SIRA
+            WHERE PV.PLANLAMA_DURUMU = 'PLANLANDI'
             ORDER BY VD.ISEMRI_NO, PV.ISEMRI_ID, PV.ISEMRI_PARCA_NO
         `;
         
@@ -4339,21 +4328,9 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                     const insertRes = await connection.execute(insertQuery, bindVars);
                     try { createdPlanIdOut = insertRes?.outBinds?.planId?.[0] ?? null; } catch (_) { createdPlanIdOut = null; }
                     
-                    // Kalan kısmı "Beklemede" olarak kaydet
+                    // NOT: Kalan kısmı "Beklemede" olarak veritabanına kaydetmiyoruz
+                    // Bekleyen miktar frontend'de dinamik olarak hesaplanacak (sipariş miktarı - toplam planlanan)
                     const kalanMiktar = siparisMiktar - parseInt(planlananMiktar);
-                    const insertKalanQuery = `
-                        INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                        (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                        VALUES (:isemriId, NULL, 2, :kalanMiktar, 'BEKLEMEDE', :targetMachine, :targetMakId, :aciklama)
-                    `;
-                    
-                    await connection.execute(insertKalanQuery, {
-                        isemriId: isemriId,
-                        kalanMiktar: kalanMiktar,
-                        targetMachine: targetMachine,
-                        targetMakId: targetMakId,
-                        aciklama: aciklama || null
-                    });
                 } else {
                     // Tam planlama
                     const insertQuery = `

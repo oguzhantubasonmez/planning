@@ -1259,8 +1259,14 @@ class DataGrid {
             
             gridBody.appendChild(mainRow);
             
-            // Kırılım satırlarını ekle
-            if (hasBreakdowns) {
+            // Kırılım satırlarını ekle (planlanan breakdown'lar veya bekleyen miktar varsa)
+            const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+            const totalPlanned = (item.breakdowns || [])
+                .filter(b => b.durum === 'Planlandı')
+                .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+            const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+            
+            if (hasBreakdowns || totalWaiting > 0) {
                 this.appendBreakdownRows(gridBody, item);
             }
         });
@@ -1592,26 +1598,36 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     appendBreakdownRows(gridBody, item) {
-        const hasBreakdowns = (item.breakdowns && item.breakdowns.length > 0) || item.durum === 'Kısmi Planlandı';
-        const isPartialPlanned = item.durum === 'Kısmi Planlandı';
+        // Planlanan breakdown'ları göster (veritabanından gelen)
+        if (item.breakdowns && item.breakdowns.length > 0) {
+            item.breakdowns.forEach((breakdown, breakdownIndex) => {
+                const breakdownRow = this.createBreakdownRow(item, breakdown);
+                gridBody.appendChild(breakdownRow);
+            });
+        }
         
-        if (!hasBreakdowns) return;
+        // Bekleyen kırılımı dinamik olarak hesapla ve göster (sadece bekleyen miktar > 0 ise)
+        const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+        const totalPlanned = (item.breakdowns || [])
+            .filter(b => b.durum === 'Planlandı')
+            .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
         
-        // Kırılım satırlarını ekle (başlangıçta gizli)
-                if (item.breakdowns && item.breakdowns.length > 0) {
-                    item.breakdowns.forEach((breakdown, breakdownIndex) => {
-                        // createBreakdownRow fonksiyonunu kullan (güncellenmiş versiyon - event listener'lar zaten içinde)
-                        const breakdownRow = this.createBreakdownRow(item, breakdown);
-                        gridBody.appendChild(breakdownRow);
-                    });
-                } else if (isPartialPlanned) {
-                    // Kısmi Planlandı için createPartialBreakdownRow kullan
-                    const plannedBreakdownRow = this.createPartialBreakdownRow(item, true);
-                    const waitingBreakdownRow = this.createPartialBreakdownRow(item, false);
-                    gridBody.appendChild(plannedBreakdownRow);
-                    gridBody.appendChild(waitingBreakdownRow);
-                }
-            }
+        // Bekleyen miktar varsa bekleyen kırılımı göster
+        if (totalWaiting > 0) {
+            const waitingBreakdown = {
+                planId: null,
+                parcaNo: (item.breakdowns || []).length + 1,
+                planTarihi: null,
+                planlananMiktar: totalWaiting,
+                durum: 'Beklemede',
+                makAd: item.makAd || null,
+                selectedMachine: item.selectedMachine || null
+            };
+            const waitingBreakdownRow = this.createBreakdownRow(item, waitingBreakdown);
+            gridBody.appendChild(waitingBreakdownRow);
+        }
+    }
     
     /**
      * Sadece belirli satırları günceller (performans optimizasyonu)
@@ -1682,35 +1698,44 @@ class DataGrid {
         row.replaceWith(newRow);
         
         // Yeni breakdown satırlarını ana satırın hemen sonrasına ekle
-        const hasBreakdowns = (item.breakdowns && item.breakdowns.length > 0) || item.durum === 'Kısmi Planlandı';
+        const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+        const totalPlanned = (item.breakdowns || [])
+            .filter(b => b.durum === 'Planlandı')
+            .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        const hasBreakdowns = (item.breakdowns && item.breakdowns.length > 0) || totalWaiting > 0;
+        
         if (hasBreakdowns) {
             // Ana satırın hemen sonrasına breakdown satırlarını ekle
-            // newRow.nextSibling kullanmak yerine, newRow'u bulup sonrasına ekleyelim
             const nextSibling = newRow.nextSibling;
-            if (nextSibling && !nextSibling.classList.contains('breakdown-row')) {
-                // Eğer bir sonraki kardeş varsa ve breakdown değilse, ondan önce ekle
-                if (item.breakdowns && item.breakdowns.length > 0) {
-                    item.breakdowns.forEach((breakdown) => {
-                        const breakdownRow = this.createBreakdownRow(item, breakdown);
+            
+            // Planlanan breakdown'ları ekle
+            if (item.breakdowns && item.breakdowns.length > 0) {
+                item.breakdowns.forEach((breakdown) => {
+                    const breakdownRow = this.createBreakdownRow(item, breakdown);
+                    if (nextSibling && !nextSibling.classList.contains('breakdown-row')) {
                         nextSibling.parentNode.insertBefore(breakdownRow, nextSibling);
-                    });
-                } else if (item.durum === 'Kısmi Planlandı') {
-                    const plannedBreakdownRow = this.createPartialBreakdownRow(item, true);
-                    const waitingBreakdownRow = this.createPartialBreakdownRow(item, false);
-                    nextSibling.parentNode.insertBefore(plannedBreakdownRow, nextSibling);
-                    nextSibling.parentNode.insertBefore(waitingBreakdownRow, nextSibling);
-                }
-            } else {
-                // Eğer bir sonraki kardeş yoksa veya breakdown ise, direkt sonrasına ekle
-                if (item.breakdowns && item.breakdowns.length > 0) {
-                    item.breakdowns.forEach((breakdown) => {
-                        const breakdownRow = this.createBreakdownRow(item, breakdown);
+                    } else {
                         newRow.parentNode.insertBefore(breakdownRow, newRow.nextSibling);
-                    });
-                } else if (item.durum === 'Kısmi Planlandı') {
-                    const plannedBreakdownRow = this.createPartialBreakdownRow(item, true);
-                    const waitingBreakdownRow = this.createPartialBreakdownRow(item, false);
-                    newRow.parentNode.insertBefore(plannedBreakdownRow, newRow.nextSibling);
+                    }
+                });
+            }
+            
+            // Bekleyen kırılımı ekle (varsa)
+            if (totalWaiting > 0) {
+                const waitingBreakdown = {
+                    planId: null,
+                    parcaNo: (item.breakdowns || []).length + 1,
+                    planTarihi: null,
+                    planlananMiktar: totalWaiting,
+                    durum: 'Beklemede',
+                    makAd: item.makAd || null,
+                    selectedMachine: item.selectedMachine || null
+                };
+                const waitingBreakdownRow = this.createBreakdownRow(item, waitingBreakdown);
+                if (nextSibling && !nextSibling.classList.contains('breakdown-row')) {
+                    nextSibling.parentNode.insertBefore(waitingBreakdownRow, nextSibling);
+                } else {
                     newRow.parentNode.insertBefore(waitingBreakdownRow, newRow.nextSibling);
                 }
             }
@@ -1735,22 +1760,33 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     appendBreakdownRowsToFragment(fragment, item) {
-        const hasBreakdowns = (item.breakdowns && item.breakdowns.length > 0) || item.durum === 'Kısmi Planlandı';
-        const isPartialPlanned = item.durum === 'Kısmi Planlandı';
-        
-        if (!hasBreakdowns) return;
-        
-        // Kırılım satırlarını ekle (başlangıçta gizli)
+        // Planlanan breakdown'ları göster (veritabanından gelen)
         if (item.breakdowns && item.breakdowns.length > 0) {
             item.breakdowns.forEach((breakdown, breakdownIndex) => {
                 const breakdownRow = this.createBreakdownRow(item, breakdown);
                 fragment.appendChild(breakdownRow);
             });
-        } else if (isPartialPlanned) {
-            // Kısmi Planlandı için özel kırılım satırları oluştur
-            const plannedBreakdownRow = this.createPartialBreakdownRow(item, true);
-            const waitingBreakdownRow = this.createPartialBreakdownRow(item, false);
-            fragment.appendChild(plannedBreakdownRow);
+        }
+        
+        // Bekleyen kırılımı dinamik olarak hesapla ve göster (sadece bekleyen miktar > 0 ise)
+        const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+        const totalPlanned = (item.breakdowns || [])
+            .filter(b => b.durum === 'Planlandı')
+            .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        
+        // Bekleyen miktar varsa bekleyen kırılımı göster
+        if (totalWaiting > 0) {
+            const waitingBreakdown = {
+                planId: null,
+                parcaNo: (item.breakdowns || []).length + 1,
+                planTarihi: null,
+                planlananMiktar: totalWaiting,
+                durum: 'Beklemede',
+                makAd: item.makAd || null,
+                selectedMachine: item.selectedMachine || null
+            };
+            const waitingBreakdownRow = this.createBreakdownRow(item, waitingBreakdown);
             fragment.appendChild(waitingBreakdownRow);
         }
     }
@@ -1794,6 +1830,17 @@ class DataGrid {
         const birimAgirlik = (item.degerKk || 0) / siparisMiktar; // Birim ağırlık (KG/adet)
         const birimBrutAgirlik = (item.brutAgirlik || 0) / siparisMiktar; // Birim brüt ağırlık (KG/adet)
         const birimSure = (item.degerDk || 0) / siparisMiktar; // Birim süre (saat/adet)
+        
+        // Bekleyen kırılım için planlanan miktarı dinamik olarak hesapla
+        let breakdownPlanlananMiktar = breakdown.planlananMiktar || 0;
+        if (breakdown.durum === 'Beklemede' && breakdown.planId === null) {
+            // Bekleyen kırılım: sipariş miktarı - toplam planlanan
+            const totalPlanned = (item.breakdowns || [])
+                .filter(b => b.durum === 'Planlandı')
+                .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+            breakdownPlanlananMiktar = Math.max(0, siparisMiktar - totalPlanned);
+        }
+        
         const brkKg = breakdown.durum === 'Planlandı' ? (birimAgirlik * (breakdown.planlananMiktar || 0)) : 0;
         const brkBrutKg = breakdown.durum === 'Planlandı' ? (birimBrutAgirlik * (breakdown.planlananMiktar || 0)) : 0;
         const brkDk = breakdown.durum === 'Planlandı' ? (birimSure * (breakdown.planlananMiktar || 0)) : 0;
@@ -1841,8 +1888,18 @@ class DataGrid {
                     return bakiyeMiktar;
                 case 'gercekMiktar':
                     return breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0);
-                case 'planlananMiktar':
-                    return breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : '';
+                    case 'planlananMiktar':
+                        if (breakdown.durum === 'Planlandı') {
+                            return breakdown.planlananMiktar || 0;
+                        } else if (breakdown.durum === 'Beklemede') {
+                            // Bekleyen kırılım için dinamik hesaplama
+                            const totalPlanned = (item.breakdowns || [])
+                                .filter(b => b.durum === 'Planlandı')
+                                .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+                            const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+                            return Math.max(0, siparisMiktar - totalPlanned);
+                        }
+                        return '';
                 case 'planlananTarih':
                     return breakdown.planTarihi ? new Date(breakdown.planTarihi).toLocaleDateString('tr-TR') : '';
                 case 'onerilenTeslimTarih':
@@ -1904,8 +1961,14 @@ class DataGrid {
                 parcaNo: breakdown.parcaNo, // Alternatif yöntem için de ekle
                 planId: breakdown.planId,
                 breakdownPlanId: breakdown.planId, // Geri çekme için breakdownPlanId set et
-                // Beklemede ise bu kırılımın bekleyen miktarı kullanıcıya varsayılan olarak gelsin
-                planlananMiktar: breakdown.durum === 'Beklemede' ? (breakdown.planlananMiktar || item.totalWaiting || 0) : breakdown.planlananMiktar,
+                // Beklemede ise bu kırılımın bekleyen miktarı kullanıcıya varsayılan olarak gelsin (dinamik hesaplama)
+                planlananMiktar: breakdown.durum === 'Beklemede' ? (() => {
+                    const totalPlanned = (item.breakdowns || [])
+                        .filter(b => b.durum === 'Planlandı')
+                        .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+                    const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+                    return Math.max(0, siparisMiktar - totalPlanned);
+                })() : breakdown.planlananMiktar,
                 planlananTarih: breakdown.planTarihi,
                 durum: breakdown.durum
             };
@@ -2013,7 +2076,20 @@ class DataGrid {
                 case 'gercekMiktar':
                     return item.gercekMiktar || 0;
                 case 'planlananMiktar':
-                    return isPlanned ? (item.totalPlanned || 0) : '';
+                    if (isPlanned) {
+                        // Planlanan miktar: tüm planlanan breakdown'ların toplamı
+                        const totalPlanned = (item.breakdowns || [])
+                            .filter(b => b.durum === 'Planlandı')
+                            .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+                        return totalPlanned || 0;
+                    } else {
+                        // Bekleyen miktar: sipariş miktarı - toplam planlanan
+                        const siparisMiktar = item.siparisMiktar || item.planMiktar || 0;
+                        const totalPlanned = (item.breakdowns || [])
+                            .filter(b => b.durum === 'Planlandı')
+                            .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+                        return Math.max(0, siparisMiktar - totalPlanned);
+                    }
                 case 'planlananTarih':
                     return isPlanned && item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : '';
                 case 'onerilenTeslimTarih':
@@ -4738,50 +4814,40 @@ class DataGrid {
         // Seçilen makineyi al (maça aşaması için)
         const selectedMachine = item.selectedMachine || item.makAd || null;
         
+        // Mevcut breakdown'ları al (eğer varsa)
+        const existingBreakdowns = (item.breakdowns || []).filter(b => b.durum === 'Planlandı');
+        
+        // Yeni breakdown oluştur
+        const newBreakdown = {
+            planId: planIdToUse,
+            parcaNo: existingBreakdowns.length > 0 ? Math.max(...existingBreakdowns.map(b => b.parcaNo || 1)) + 1 : 1,
+            planTarihi: planTarihi,
+            planlananMiktar: planlananMiktar,
+            durum: 'Planlandı',
+            makAd: selectedMachine,
+            selectedMachine: selectedMachine,
+            aciklama: aciklama || null
+        };
+        
+        // Mevcut breakdown'ları koru ve yeni breakdown'ı ekle
+        const allBreakdowns = [...existingBreakdowns, newBreakdown];
+        const totalPlanned = allBreakdowns.reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
+        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        
         if (isPartialPlanning) {
-            // Kısmi planlama - 2 kırılım oluştur
+            // Kısmi planlama - mevcut breakdown'ları koru, yeni breakdown'ı ekle
+            // Bekleyen kırılım frontend'de dinamik olarak hesaplanacak (appendBreakdownRowsToFragment'te)
             return {
-                breakdowns: [
-                    {
-                        planId: planIdToUse,
-                        parcaNo: 1,
-                        planTarihi: planTarihi,
-                        planlananMiktar: planlananMiktar,
-                        durum: 'Planlandı',
-                        makAd: selectedMachine,
-                        selectedMachine: selectedMachine,
-                        aciklama: aciklama || null
-                    },
-                    {
-                        planId: null,
-                        parcaNo: 2,
-                        planTarihi: null,
-                        planlananMiktar: siparisMiktar - planlananMiktar,
-                        durum: 'Beklemede',
-                        makAd: selectedMachine,
-                        selectedMachine: selectedMachine
-                    }
-                ],
-                totalPlanned: planlananMiktar,
-                totalWaiting: siparisMiktar - planlananMiktar,
-                status: 'Kısmi Planlandı'
+                breakdowns: allBreakdowns,
+                totalPlanned: totalPlanned,
+                totalWaiting: totalWaiting,
+                status: totalPlanned >= siparisMiktar ? 'Planlandı' : 'Kısmi Planlandı'
             };
         } else {
-            // Tam planlama - 1 kırılım
+            // Tam planlama - tüm breakdown'ları göster
             return {
-                breakdowns: [
-                    {
-                        planId: planIdToUse,
-                        parcaNo: 1,
-                        planTarihi: planTarihi,
-                        planlananMiktar: planlananMiktar,
-                        durum: 'Planlandı',
-                        makAd: selectedMachine,
-                        selectedMachine: selectedMachine,
-                        aciklama: aciklama || null
-                    }
-                ],
-                totalPlanned: planlananMiktar,
+                breakdowns: allBreakdowns,
+                totalPlanned: totalPlanned,
                 totalWaiting: 0,
                 status: 'Planlandı'
             };
@@ -4981,7 +5047,7 @@ class DataGrid {
 
             // ÖNEMLİ: item referansı eski olabilir, güncel data array'inden yeniden al
             // Geri çekme sonrası planId null olur, bu yüzden güncel veriyi kullanmalıyız
-            // Ama selectedMachine değerini koru (maça aşamasında seçilen alt makine)
+            // Ama selectedMachine ve breakdownPlanId değerlerini koru (maça aşamasında seçilen alt makine ve bekleyen kırılım kontrolü için)
             let currentItem = item;
             if (window.planningApp && window.planningApp.data) {
                 const freshItem = window.planningApp.data.find(rec => rec.isemriId === item.isemriId);
@@ -4991,31 +5057,47 @@ class DataGrid {
                     if (item.selectedMachine) {
                         currentItem.selectedMachine = item.selectedMachine;
                     }
+                    // breakdownPlanId'yi koru (bekleyen kırılım kontrolü için)
+                    if (item.breakdownPlanId !== undefined) {
+                        currentItem.breakdownPlanId = item.breakdownPlanId;
+                    }
                 } else {
-                    // Fresh item bulunamazsa, item'dan selectedMachine'i koru
+                    // Fresh item bulunamazsa, item'dan selectedMachine ve breakdownPlanId'yi koru
                     if (item.selectedMachine) {
                         currentItem.selectedMachine = item.selectedMachine;
                     }
+                    if (item.breakdownPlanId !== undefined) {
+                        currentItem.breakdownPlanId = item.breakdownPlanId;
+                    }
                 }
             } else {
-                // PlanningApp yoksa, item'dan selectedMachine'i koru
+                // PlanningApp yoksa, item'dan selectedMachine ve breakdownPlanId'yi koru
                 if (item.selectedMachine) {
                     currentItem.selectedMachine = item.selectedMachine;
+                }
+                if (item.breakdownPlanId !== undefined) {
+                    currentItem.breakdownPlanId = item.breakdownPlanId;
                 }
             }
 
             let result;
 
-            // Beklemede olan bir kırılım planlanıyorsa yeni kayıt oluşturma; mevcut kırılımı GÜNCELLE
-            // Not: planId geçerli olmalı (null, undefined, 'new' değil) ve durum 'Beklemede' olmalı
-            // Geri çekme sonrası planId null olur, bu durumda INSERT yapılmalı
+            // Beklemede olan bir kırılım planlanıyorsa kontrol et
+            // ÖNEMLİ: Frontend'de dinamik olarak gösterilen bekleyen kırılımın planId'si null'dur
+            // Bu durumda yeni kayıt oluşturulmalı (INSERT), mevcut plan güncellenmemeli
             const hasValidPlanId = currentItem?.planId && 
                                    currentItem.planId !== 'new' && 
                                    currentItem.planId !== null && 
                                    currentItem.planId !== undefined;
             
-            if (hasValidPlanId && currentItem?.durum === 'Beklemede' && currentItem?.isemriParcaNo) {
-                // Beklemede kırılım var ve geçerli planId var → UPDATE
+            // Bekleyen kırılım: planId null ise ve durum 'Beklemede' ise → YENİ KAYIT (INSERT)
+            // Geri çekilmiş kırılım: planId null ama veritabanında kayıt var → UPDATE (ama bu durumda planId olmaz, INSERT yapılır)
+            const isWaitingBreakdownFromFrontend = currentItem?.durum === 'Beklemede' && 
+                                                   (currentItem?.planId === null || currentItem?.planId === undefined) &&
+                                                   currentItem?.breakdownPlanId === null;
+            
+            if (hasValidPlanId && currentItem?.durum === 'Beklemede' && currentItem?.isemriParcaNo && !isWaitingBreakdownFromFrontend) {
+                // Beklemede kırılım var ve geçerli planId var → UPDATE (veritabanında kayıt var)
                 console.log('Beklemede kırılım planlanıyor -> UPDATE ile durum PLANLANDI yapılacak', {
                     planId: currentItem.planId,
                     planTarihi,
@@ -5035,8 +5117,8 @@ class DataGrid {
                 result = await resp.json();
                 if (!result.success) throw new Error(result.message || 'Kırılım güncellenemedi');
             } else {
-                // Yeni plan: ana satırdan, geri çekilmiş kayıttan veya kırılımı olmayan kayıttan → INSERT
-                // Geri çekme sonrası planId null olduğu için INSERT yapılmalı
+                // Yeni plan: ana satırdan, geri çekilmiş kayıttan, kırılımı olmayan kayıttan veya frontend'de dinamik gösterilen bekleyen kırılımdan → INSERT
+                // Bekleyen kırılım frontend'de dinamik olarak gösterildiği için planId null'dur, yeni kayıt oluşturulmalı
                 const planningData = {
                     isemriId: currentItem.isemriId,
                     planTarihi: planTarihi,
@@ -5067,8 +5149,28 @@ class DataGrid {
                 if (window.planningApp) {
                     console.log('Planlama işlemi için ultra hızlı güncelleme...');
 
-                    // Beklemede olan kırılım planlandıysa, yeni breakdown üretme; mevcut kırılımı güncelle
-                    if (currentItem?.durum === 'Beklemede' && currentItem?.isemriParcaNo) {
+                    // Beklemede olan kırılım planlandıysa kontrol et
+                    // Frontend'de dinamik gösterilen bekleyen kırılım için yeni breakdown oluştur
+                    const isWaitingBreakdownFromFrontend = currentItem?.durum === 'Beklemede' && 
+                                                           (currentItem?.planId === null || currentItem?.planId === undefined) &&
+                                                           currentItem?.breakdownPlanId === null;
+                    
+                    if (isWaitingBreakdownFromFrontend) {
+                        // Frontend'de dinamik gösterilen bekleyen kırılım planlandı → Yeni breakdown oluştur
+                        const createdPlanId = result?.data?.createdPlanId?.outBinds ? result.data.createdPlanId.outBinds[0] : result?.data?.createdPlanId;
+                        const updatedPlanningData = this.updatePlanningDataForItem(currentItem, planTarihi, planlananMiktar, createdPlanId);
+                        const updatedRecord = {
+                            isemriId: currentItem.isemriId,
+                            planTarihi: planTarihi,
+                            planlananMiktar: planlananMiktar,
+                            planId: createdPlanId,
+                            planningData: updatedPlanningData,
+                            isBreakdown: true,
+                            selectedMachine: currentItem.selectedMachine
+                        };
+                        await window.planningApp.ultraFastUpdate([updatedRecord]);
+                    } else if (currentItem?.durum === 'Beklemede' && currentItem?.isemriParcaNo && hasValidPlanId) {
+                        // Veritabanında kayıtlı bekleyen kırılım planlandı → Mevcut kırılımı güncelle
                         const updatedRecord = {
                             isemriId: currentItem.isemriId,
                             planTarihi: planTarihi,
