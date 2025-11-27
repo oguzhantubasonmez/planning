@@ -1600,224 +1600,14 @@ class DataGrid {
         // Kırılım satırlarını ekle (başlangıçta gizli)
                 if (item.breakdowns && item.breakdowns.length > 0) {
                     item.breakdowns.forEach((breakdown, breakdownIndex) => {
-                        const breakdownRow = document.createElement('tr');
-                        breakdownRow.classList.add('breakdown-row');
-                        breakdownRow.style.display = 'none';
-                        // Kırılıma göre ağırlık ve süre hesapları
-                        // Birim değerleri hesaplamak için sipariş miktarını kullan (planlanan miktar değil)
-                        const siparisMiktar = item.degerAdet || item.planMiktar || 1;
-                        const birimAgirlik = (item.degerKk || 0) / siparisMiktar; // Birim ağırlık (KG/adet)
-                        const birimBrutAgirlik = (item.brutAgirlik || 0) / siparisMiktar; // Birim brüt ağırlık (KG/adet)
-                        const birimSure = (item.degerDk || 0) / siparisMiktar; // Birim süre (saat/adet)
-                        const brkKg = breakdown.durum === 'Planlandı' ? (birimAgirlik * (breakdown.planlananMiktar || 0)) : 0;
-                        const brkBrutKg = breakdown.durum === 'Planlandı' ? (birimBrutAgirlik * (breakdown.planlananMiktar || 0)) : 0;
-                        const brkDk = breakdown.durum === 'Planlandı' ? (birimSure * (breakdown.planlananMiktar || 0)) : 0;
-                        
-                        // Breakdown için planId
-                        const breakdownPlanId = breakdown.planId || null;
-                        const breakdownPlanIdStr = breakdownPlanId ? String(breakdownPlanId) : null;
-                        const isBreakdownChecked = breakdownPlanIdStr && this.selectedRows.has(breakdownPlanIdStr);
-                        const breakdownPlanIdForOnclick = breakdownPlanId ? breakdownPlanId : 'null';
-                        
-                        breakdownRow.innerHTML = `
-                            <td class="breakdown-cell" style="width: 40px; text-align: center;">
-                                <input type="checkbox" class="row-checkbox breakdown-checkbox" 
-                                       data-plan-id="${breakdownPlanId || ''}" 
-                                       data-isemri-id="${item.isemriId}"
-                                       ${isBreakdownChecked ? 'checked' : ''}
-                                       onclick="event.stopPropagation(); dataGrid.toggleRowSelection(${item.isemriId}, ${breakdownPlanIdForOnclick}, this.checked)">
-                            </td>
-                            <td class="breakdown-cell">
-                                <span class="breakdown-indent">└─</span>
-                                <span class="status-badge ${breakdown.durum.toLowerCase()}">${breakdown.durum}</span>
-                                ${this.isMacaBolumu(item) && breakdown.makAd ? `<div class="machine-info">${breakdown.makAd}</div>` : ''}
-                            </td>
-                            <td class="breakdown-cell">${breakdown.parcaNo || ''}</td>
-                            <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-                            <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-                            <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-                            <td class="breakdown-cell">${brkKg > 0 ? brkKg.toFixed(1) : '-'}</td>
-                            <td class="breakdown-cell">${brkBrutKg > 0 ? brkBrutKg.toFixed(1) : '-'}</td>
-                            <td class="breakdown-cell">${brkDk.toFixed(2)}</td>
-                            <td class="breakdown-cell"></td>
-                            <td class="breakdown-cell">${item.figurSayisi || 0}</td>
-                            <td class="breakdown-cell">${breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0)}</td>
-                            <td class="breakdown-cell">${breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : ''}</td>
-                            <td class="breakdown-cell">${breakdown.planTarihi ? new Date(breakdown.planTarihi).toLocaleDateString('tr-TR') : ''}</td>
-                            <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-                            <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-                            <td class="breakdown-cell">${breakdown.aciklama && String(breakdown.aciklama).trim() ? String(breakdown.aciklama).substring(0, 50) + (String(breakdown.aciklama).length > 50 ? '...' : '') : '-'}</td>
-                        `;
-                        
-                        // Kırılım satırına tıklandığında grafiğe odaklan
-                        breakdownRow.addEventListener('click', async () => {
-                            const targetDate = breakdown.planTarihi || item.onerilenTeslimTarih;
-                            if (targetDate && window.chartManager) {
-                                const week = this.getWeekFromDate(targetDate);
-                                // Önce haftaya odaklan
-                                await window.chartManager.focusOnWeek(week, targetDate);
-                                // Sonra plan ID ile segment seçimi yap
-                                if (typeof window.chartManager.setBreakdownSelection === 'function') {
-                                    window.chartManager.setBreakdownSelection({
-                                        isemriId: item.isemriId,
-                                        isemriNo: item.isemriNo,
-                                        planId: breakdown.planId,
-                                        parcaNo: breakdown.parcaNo,
-                                        planlananMiktar: breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : 0,
-                                        agirlik: brkKg,
-                                        toplamSure: brkDk,
-                                        planlananTarih: targetDate,
-                                        selectedMachine: breakdown.makAd
-                                    });
-                                }
-                            }
-                        });
-
-                        // Kırılım satırına da sağ tıklama event'i ekle
-                        breakdownRow.addEventListener('contextmenu', (e) => {
-                            e.preventDefault();
-                        // Kırılım için özel item oluştur (kırılıma özgü miktar ve planId)
-                        // ÖNEMLİ: breakdown.planId obje olabilir, bu durumda alternatif yöntem kullanılacak
-                        const breakdownItem = {
-                            ...item,
-                            isemriParcaNo: breakdown.parcaNo,
-                            parcaNo: breakdown.parcaNo, // Alternatif yöntem için de ekle
-                            planId: breakdown.planId,
-                            breakdownPlanId: breakdown.planId, // Geri çekme için breakdownPlanId set et
-                            // Beklemede ise bu kırılımın bekleyen miktarı kullanıcıya varsayılan olarak gelsin
-                            planlananMiktar: breakdown.durum === 'Beklemede' ? (breakdown.planlananMiktar || item.totalWaiting || 0) : breakdown.planlananMiktar,
-                            planlananTarih: breakdown.planTarihi,
-                            durum: breakdown.durum
-                        };
-                        
-                        // Debug: Kırılım item'ının planId'sini kontrol et
-                        console.log('Kırılım item oluşturuldu:', {
-                            isemriId: breakdownItem.isemriId,
-                            isemriParcaNo: breakdownItem.isemriParcaNo,
-                            parcaNo: breakdownItem.parcaNo,
-                            planId: breakdownItem.planId,
-                            planIdType: typeof breakdownItem.planId,
-                            breakdownPlanId: breakdown.planId,
-                            breakdownPlanIdType: typeof breakdown.planId,
-                            planlananMiktar: breakdownItem.planlananMiktar,
-                            durum: breakdownItem.durum
-                        });
-                            this.showContextMenu(e, breakdownItem);
-                        });
-                        
-                        breakdownRow.setAttribute('data-parent-isemri-id', item.isemriId);
+                        // createBreakdownRow fonksiyonunu kullan (güncellenmiş versiyon - event listener'lar zaten içinde)
+                        const breakdownRow = this.createBreakdownRow(item, breakdown);
                         gridBody.appendChild(breakdownRow);
                     });
                 } else if (isPartialPlanned) {
-                    // Kısmi Planlandı için özel kırılım satırları oluştur
-                    // Planlanan kısım için planId bul
-                    let partialPlanId = null;
-                    if (item.breakdowns && item.breakdowns.length > 0) {
-                        const plannedBreakdown = item.breakdowns.find(b => b.durum === 'Planlandı' && b.planId);
-                        if (plannedBreakdown) {
-                            partialPlanId = plannedBreakdown.planId;
-                        }
-                    } else if (item.planId) {
-                        partialPlanId = item.planId;
-                    }
-                    const partialPlanIdStr = partialPlanId ? String(partialPlanId) : null;
-                    const isPartialChecked = partialPlanIdStr && this.selectedRows.has(partialPlanIdStr);
-                    const partialPlanIdForOnclick = partialPlanId ? partialPlanId : 'null';
-                    
-                    // Planlanan kısım
-                    const plannedBreakdownRow = document.createElement('tr');
-                    plannedBreakdownRow.classList.add('breakdown-row');
-                    plannedBreakdownRow.style.display = 'none';
-                    plannedBreakdownRow.innerHTML = `
-                        <td class="breakdown-cell" style="width: 40px; text-align: center;">
-                            <input type="checkbox" class="row-checkbox breakdown-checkbox" 
-                                   data-plan-id="${partialPlanId || ''}" 
-                                   data-isemri-id="${item.isemriId}"
-                                   ${isPartialChecked ? 'checked' : ''}
-                                   onclick="event.stopPropagation(); dataGrid.toggleRowSelection(${item.isemriId}, ${partialPlanIdForOnclick}, this.checked)">
-                        </td>
-                        <td class="breakdown-cell">
-                            <span class="breakdown-indent">└─</span>
-                            <span class="status-badge planlandı">Planlandı</span>
-                        </td>
-                        <td class="breakdown-cell">1</td>
-                        <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-                        <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-                        <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-                        <td class="breakdown-cell">${(item.degerKk || 0) > 0 ? (item.degerKk || 0).toFixed(1) : '-'}</td>
-                        <td class="breakdown-cell">${(item.brutAgirlik || 0) > 0 ? (item.brutAgirlik || 0).toFixed(1) : '-'}</td>
-                        <td class="breakdown-cell">${(item.degerDk || 0).toFixed(2)}</td>
-                        <td class="breakdown-cell"></td>
-                        <td class="breakdown-cell">${item.gercekMiktar || 0}</td>
-                        <td class="breakdown-cell">${item.totalPlanned || 0}</td>
-                        <td class="breakdown-cell">${item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : ''}</td>
-                        <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-                        <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-                        <td class="breakdown-cell">${item.aciklama && String(item.aciklama).trim() ? String(item.aciklama).substring(0, 50) + (String(item.aciklama).length > 50 ? '...' : '') : '-'}</td>
-                    `;
-
-                    plannedBreakdownRow.addEventListener('click', async () => {
-                        const targetDate = item.planlananTarih || item.onerilenTeslimTarih;
-                        if (targetDate && window.chartManager) {
-                            const week = this.getWeekFromDate(targetDate);
-                            window.chartManager.focusOnWeek(week);
-                        }
-                    });
-                    
-                    // Beklemede kısım için planId bul
-                    let waitingPlanId = null;
-                    if (item.breakdowns && item.breakdowns.length > 0) {
-                        const waitingBreakdown = item.breakdowns.find(b => b.durum === 'Beklemede' && b.planId);
-                        if (waitingBreakdown) {
-                            waitingPlanId = waitingBreakdown.planId;
-                        }
-                    }
-                    const waitingPlanIdStr = waitingPlanId ? String(waitingPlanId) : null;
-                    const isWaitingChecked = waitingPlanIdStr && this.selectedRows.has(waitingPlanIdStr);
-                    const waitingPlanIdForOnclick = waitingPlanId ? waitingPlanId : 'null';
-                    
-                    // Beklemede kısım
-                    const waitingBreakdownRow = document.createElement('tr');
-                    waitingBreakdownRow.classList.add('breakdown-row');
-                    waitingBreakdownRow.style.display = 'none';
-                    waitingBreakdownRow.innerHTML = `
-                        <td class="breakdown-cell" style="width: 40px; text-align: center;">
-                            <input type="checkbox" class="row-checkbox breakdown-checkbox" 
-                                   data-plan-id="${waitingPlanId || ''}" 
-                                   data-isemri-id="${item.isemriId}"
-                                   ${isWaitingChecked ? 'checked' : ''}
-                                   onclick="event.stopPropagation(); dataGrid.toggleRowSelection(${item.isemriId}, ${waitingPlanIdForOnclick}, this.checked)">
-                        </td>
-                        <td class="breakdown-cell">
-                            <span class="breakdown-indent">└─</span>
-                            <span class="status-badge beklemede">Beklemede</span>
-                        </td>
-                        <td class="breakdown-cell">2</td>
-                        <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-                        <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-                        <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-                        <td class="breakdown-cell">${(item.degerKk || 0) > 0 ? (item.degerKk || 0).toFixed(1) : '-'}</td>
-                        <td class="breakdown-cell">${(item.brutAgirlik || 0) > 0 ? (item.brutAgirlik || 0).toFixed(1) : '-'}</td>
-                        <td class="breakdown-cell">${(item.degerDk || 0).toFixed(2)}</td>
-                        <td class="breakdown-cell"></td>
-                        <td class="breakdown-cell">${item.gercekMiktar || 0}</td>
-                        <td class="breakdown-cell"></td>
-                        <td class="breakdown-cell"></td>
-                        <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-                        <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-                        <td class="breakdown-cell">${item.aciklama && String(item.aciklama).trim() ? String(item.aciklama).substring(0, 50) + (String(item.aciklama).length > 50 ? '...' : '') : '-'}</td>
-                    `;
-
-                    waitingBreakdownRow.addEventListener('click', async () => {
-                        const targetDate = item.onerilenTeslimTarih;
-                        if (targetDate && window.chartManager) {
-                            const week = this.getWeekFromDate(targetDate);
-                            window.chartManager.focusOnWeek(week);
-                        }
-                    });
-                    
-                    plannedBreakdownRow.setAttribute('data-parent-isemri-id', item.isemriId);
-                    waitingBreakdownRow.setAttribute('data-parent-isemri-id', item.isemriId);
+                    // Kısmi Planlandı için createPartialBreakdownRow kullan
+                    const plannedBreakdownRow = this.createPartialBreakdownRow(item, true);
+                    const waitingBreakdownRow = this.createPartialBreakdownRow(item, false);
                     gridBody.appendChild(plannedBreakdownRow);
                     gridBody.appendChild(waitingBreakdownRow);
                 }
@@ -1977,6 +1767,27 @@ class DataGrid {
         breakdownRow.style.display = 'none';
         breakdownRow.setAttribute('data-parent-isemri-id', item.isemriId);
         
+        // Checkbox ekle (normal satırlarla aynı)
+        const checkboxTd = document.createElement('td');
+        checkboxTd.style.width = '40px';
+        checkboxTd.style.textAlign = 'center';
+        checkboxTd.className = 'breakdown-cell';
+        
+        // Kırılım için planId bul
+        const planId = breakdown.planId || null;
+        const planIdStr = planId ? String(planId) : null;
+        const isChecked = planIdStr && this.selectedRows.has(planIdStr);
+        const planIdForOnclick = planId ? planId : 'null';
+        
+        checkboxTd.innerHTML = `
+            <input type="checkbox" class="row-checkbox breakdown-checkbox" 
+                   data-plan-id="${planId || ''}" 
+                   data-isemri-id="${item.isemriId}"
+                   ${isChecked ? 'checked' : ''}
+                   onclick="event.stopPropagation(); dataGrid.toggleRowSelection(${item.isemriId}, ${planIdForOnclick}, this.checked)">
+        `;
+        breakdownRow.appendChild(checkboxTd);
+        
         // Kırılıma göre ağırlık ve süre hesapları
         // Birim değerleri hesaplamak için sipariş miktarını kullan (planlanan miktar değil)
         const siparisMiktar = item.degerAdet || item.planMiktar || 1;
@@ -1987,28 +1798,76 @@ class DataGrid {
         const brkBrutKg = breakdown.durum === 'Planlandı' ? (birimBrutAgirlik * (breakdown.planlananMiktar || 0)) : 0;
         const brkDk = breakdown.durum === 'Planlandı' ? (birimSure * (breakdown.planlananMiktar || 0)) : 0;
         
-        breakdownRow.innerHTML = `
-            <td class="breakdown-cell">
-                <span class="breakdown-indent">└─</span>
-                <span class="status-badge ${breakdown.durum.toLowerCase()}">${breakdown.durum}</span>
-                ${this.isMacaBolumu(item) && breakdown.makAd ? `<div class="machine-info">${breakdown.makAd}</div>` : ''}
-            </td>
-            <td class="breakdown-cell">${breakdown.parcaNo || ''}</td>
-            <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-            <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-            <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-            <td class="breakdown-cell">${brkKg > 0 ? brkKg.toFixed(1) : '-'}</td>
-            <td class="breakdown-cell">${brkBrutKg > 0 ? brkBrutKg.toFixed(1) : '-'}</td>
-            <td class="breakdown-cell">${brkDk.toFixed(2)}</td>
-            <td class="breakdown-cell"></td>
-            <td class="breakdown-cell">${item.figurSayisi || 0}</td>
-            <td class="breakdown-cell">${breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0)}</td>
-            <td class="breakdown-cell">${breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : ''}</td>
-            <td class="breakdown-cell">${breakdown.planTarihi ? new Date(breakdown.planTarihi).toLocaleDateString('tr-TR') : ''}</td>
-            <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-            <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-            <td class="breakdown-cell">${breakdown.aciklama && String(breakdown.aciklama).trim() ? String(breakdown.aciklama).substring(0, 50) + (String(breakdown.aciklama).length > 50 ? '...' : '') : '-'}</td>
-        `;
+        // Sipariş miktarı, sevk miktarı ve bakiye miktarı hesaplamaları
+        const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
+        const figurSayisi = item.figurSayisi || 0;
+        const siparisMiktarHesaplanan = planMiktar * figurSayisi;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        
+        // Kırılım satırı için hücre içeriği oluşturma fonksiyonu
+        const createBreakdownCellContent = (columnKey) => {
+            switch(columnKey) {
+                case 'durum':
+                    const normDurum = breakdown.durum.toLowerCase().replace(/\s+/g,'-').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ç/g,'c').replace(/ö/g,'o').replace(/ü/g,'u');
+                    const statusBadge = `<span class="status-badge ${normDurum}">${breakdown.durum}</span>`;
+                    const machineInfo = this.isMacaBolumu(item) && breakdown.makAd ? `<div class="machine-info">${breakdown.makAd}</div>` : '';
+                    return `<span class="breakdown-indent">└─</span>${statusBadge}${machineInfo}`;
+                case 'isemriNo':
+                    return breakdown.parcaNo || '';
+                case 'malhizKodu':
+                    return item.malhizKodu || '';
+                case 'imalatTuru':
+                    return item.imalatTuru || '';
+                case 'makAd':
+                    return breakdown.makAd || item.makAd || '-';
+                case 'tarih':
+                    return item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : '';
+                case 'agirlik':
+                    return brkKg > 0 ? brkKg.toFixed(1) : '-';
+                case 'brutAgirlik':
+                    return brkBrutKg > 0 ? brkBrutKg.toFixed(1) : '-';
+                case 'toplamSure':
+                    return brkDk.toFixed(2);
+                case 'planMiktar':
+                    return planMiktar;
+                case 'figurSayisi':
+                    return item.figurSayisi || 0;
+                case 'siparisMiktarHesaplanan':
+                    return siparisMiktarHesaplanan;
+                case 'sevkMiktari':
+                    return sevkMiktari;
+                case 'bakiyeMiktar':
+                    return bakiyeMiktar;
+                case 'gercekMiktar':
+                    return breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0);
+                case 'planlananMiktar':
+                    return breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : '';
+                case 'planlananTarih':
+                    return breakdown.planTarihi ? new Date(breakdown.planTarihi).toLocaleDateString('tr-TR') : '';
+                case 'onerilenTeslimTarih':
+                    return item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : '';
+                case 'firmaAdi':
+                    return item.firmaAdi || '';
+                case 'aciklama':
+                    return breakdown.aciklama && String(breakdown.aciklama).trim() ? String(breakdown.aciklama).substring(0, 50) + (String(breakdown.aciklama).length > 50 ? '...' : '') : '-';
+                default:
+                    return '';
+            }
+        };
+        
+        // columnOrder sırasına göre td'leri oluştur (normal satırlarla aynı sıra)
+        const orderToUse = (this.columnOrder && this.columnOrder.length > 0) 
+            ? this.columnOrder 
+            : ['durum', 'isemriNo', 'malhizKodu', 'imalatTuru', 'makAd', 'tarih', 'agirlik', 'brutAgirlik', 'toplamSure', 'planMiktar', 'figurSayisi', 'siparisMiktarHesaplanan', 'sevkMiktari', 'bakiyeMiktar', 'gercekMiktar', 'planlananMiktar', 'planlananTarih', 'onerilenTeslimTarih', 'firmaAdi', 'aciklama'];
+        
+        orderToUse.forEach(columnKey => {
+            const td = document.createElement('td');
+            td.className = 'breakdown-cell';
+            td.setAttribute('data-column', columnKey);
+            td.innerHTML = createBreakdownCellContent(columnKey);
+            breakdownRow.appendChild(td);
+        });
         
         // Kırılım satırına tıklandığında grafiğe odaklan
         breakdownRow.addEventListener('click', async () => {
@@ -2082,65 +1941,113 @@ class DataGrid {
         breakdownRow.style.display = 'none';
         breakdownRow.setAttribute('data-parent-isemri-id', item.isemriId);
         
+        // Checkbox ekle
+        const checkboxTd = document.createElement('td');
+        checkboxTd.style.width = '40px';
+        checkboxTd.style.textAlign = 'center';
+        checkboxTd.className = 'breakdown-cell';
+        
+        let planId = null;
         if (isPlanned) {
-            breakdownRow.innerHTML = `
-                <td class="breakdown-cell">
-                    <span class="breakdown-indent">└─</span>
-                    <span class="status-badge planlandı">Planlandı</span>
-                </td>
-                <td class="breakdown-cell">1</td>
-                <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-                <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-                <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-                <td class="breakdown-cell">${(item.degerKk || 0) > 0 ? (item.degerKk || 0).toFixed(1) : '-'}</td>
-                <td class="breakdown-cell">${(item.brutAgirlik || 0) > 0 ? (item.brutAgirlik || 0).toFixed(1) : '-'}</td>
-                <td class="breakdown-cell">${(item.degerDk || 0).toFixed(2)}</td>
-                <td class="breakdown-cell"></td>
-                <td class="breakdown-cell">${item.figurSayisi || 0}</td>
-                <td class="breakdown-cell">${item.gercekMiktar || 0}</td>
-                <td class="breakdown-cell">${item.totalPlanned || 0}</td>
-                <td class="breakdown-cell">${item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : ''}</td>
-                <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-                <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-                <td class="breakdown-cell">${item.aciklama && String(item.aciklama).trim() ? String(item.aciklama).substring(0, 50) + (String(item.aciklama).length > 50 ? '...' : '') : '-'}</td>
-            `;
-            breakdownRow.addEventListener('click', async () => {
-                const targetDate = item.planlananTarih || item.onerilenTeslimTarih;
-                if (targetDate && window.chartManager) {
-                    const week = this.getWeekFromDate(targetDate);
-                    window.chartManager.focusOnWeek(week);
-                }
-            });
-        } else {
-            breakdownRow.innerHTML = `
-                <td class="breakdown-cell">
-                    <span class="breakdown-indent">└─</span>
-                    <span class="status-badge beklemede">Beklemede</span>
-                </td>
-                <td class="breakdown-cell">2</td>
-                <td class="breakdown-cell">${item.malhizKodu || ''}</td>
-                <td class="breakdown-cell">${item.imalatTuru || ''}</td>
-                <td class="breakdown-cell">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</td>
-                <td class="breakdown-cell">${(item.degerKk || 0) > 0 ? (item.degerKk || 0).toFixed(1) : '-'}</td>
-                <td class="breakdown-cell">${(item.brutAgirlik || 0) > 0 ? (item.brutAgirlik || 0).toFixed(1) : '-'}</td>
-                <td class="breakdown-cell">${(item.degerDk || 0).toFixed(2)}</td>
-                <td class="breakdown-cell"></td>
-                <td class="breakdown-cell">${item.figurSayisi || 0}</td>
-                <td class="breakdown-cell">${item.gercekMiktar || 0}</td>
-                <td class="breakdown-cell"></td>
-                <td class="breakdown-cell"></td>
-                <td class="breakdown-cell">${item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : ''}</td>
-                <td class="breakdown-cell">${item.firmaAdi || ''}</td>
-                <td class="breakdown-cell">${item.aciklama && String(item.aciklama).trim() ? String(item.aciklama).substring(0, 50) + (String(item.aciklama).length > 50 ? '...' : '') : '-'}</td>
-            `;
-            breakdownRow.addEventListener('click', async () => {
-                const targetDate = item.onerilenTeslimTarih;
-                if (targetDate && window.chartManager) {
-                    const week = this.getWeekFromDate(targetDate);
-                    window.chartManager.focusOnWeek(week);
-                }
-            });
+            if (item.breakdowns && item.breakdowns.length > 0) {
+                const plannedBreakdown = item.breakdowns.find(b => b.durum === 'Planlandı' && b.planId);
+                if (plannedBreakdown) planId = plannedBreakdown.planId;
+            } else if (item.planId) {
+                planId = item.planId;
+            }
         }
+        
+        const planIdStr = planId ? String(planId) : null;
+        const isChecked = planIdStr && this.selectedRows.has(planIdStr);
+        const planIdForOnclick = planId ? planId : 'null';
+        
+        checkboxTd.innerHTML = `
+            <input type="checkbox" class="row-checkbox breakdown-checkbox" 
+                   data-plan-id="${planId || ''}" 
+                   data-isemri-id="${item.isemriId}"
+                   ${isChecked ? 'checked' : ''}
+                   onclick="event.stopPropagation(); dataGrid.toggleRowSelection(${item.isemriId}, ${planIdForOnclick}, this.checked)">
+        `;
+        breakdownRow.appendChild(checkboxTd);
+        
+        // Sipariş miktarı, sevk miktarı ve bakiye miktarı hesaplamaları
+        const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
+        const figurSayisi = item.figurSayisi || 0;
+        const siparisMiktarHesaplanan = planMiktar * figurSayisi;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        
+        // Kırılım satırı için hücre içeriği oluşturma fonksiyonu
+        const createPartialBreakdownCellContent = (columnKey) => {
+            switch(columnKey) {
+                case 'durum':
+                    const status = isPlanned ? 'Planlandı' : 'Beklemede';
+                    const normDurum = status.toLowerCase().replace(/\s+/g,'-').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ç/g,'c').replace(/ö/g,'o').replace(/ü/g,'u');
+                    return `<span class="breakdown-indent">└─</span><span class="status-badge ${normDurum}">${status}</span>`;
+                case 'isemriNo':
+                    return isPlanned ? '1' : '2';
+                case 'malhizKodu':
+                    return item.malhizKodu || '';
+                case 'imalatTuru':
+                    return item.imalatTuru || '';
+                case 'makAd':
+                    return item.makAd || item.selectedMachine || '-';
+                case 'tarih':
+                    return item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : '';
+                case 'agirlik':
+                    return (item.degerKk || 0) > 0 ? (item.degerKk || 0).toFixed(1) : '-';
+                case 'brutAgirlik':
+                    return (item.brutAgirlik || 0) > 0 ? (item.brutAgirlik || 0).toFixed(1) : '-';
+                case 'toplamSure':
+                    return (item.degerDk || 0).toFixed(2);
+                case 'planMiktar':
+                    return planMiktar;
+                case 'figurSayisi':
+                    return item.figurSayisi || 0;
+                case 'siparisMiktarHesaplanan':
+                    return siparisMiktarHesaplanan;
+                case 'sevkMiktari':
+                    return sevkMiktari;
+                case 'bakiyeMiktar':
+                    return bakiyeMiktar;
+                case 'gercekMiktar':
+                    return item.gercekMiktar || 0;
+                case 'planlananMiktar':
+                    return isPlanned ? (item.totalPlanned || 0) : '';
+                case 'planlananTarih':
+                    return isPlanned && item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : '';
+                case 'onerilenTeslimTarih':
+                    return item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : '';
+                case 'firmaAdi':
+                    return item.firmaAdi || '';
+                case 'aciklama':
+                    return item.aciklama && String(item.aciklama).trim() ? String(item.aciklama).substring(0, 50) + (String(item.aciklama).length > 50 ? '...' : '') : '-';
+                default:
+                    return '';
+            }
+        };
+        
+        // columnOrder sırasına göre td'leri oluştur
+        const orderToUse = (this.columnOrder && this.columnOrder.length > 0) 
+            ? this.columnOrder 
+            : ['durum', 'isemriNo', 'malhizKodu', 'imalatTuru', 'makAd', 'tarih', 'agirlik', 'brutAgirlik', 'toplamSure', 'planMiktar', 'figurSayisi', 'siparisMiktarHesaplanan', 'sevkMiktari', 'bakiyeMiktar', 'gercekMiktar', 'planlananMiktar', 'planlananTarih', 'onerilenTeslimTarih', 'firmaAdi', 'aciklama'];
+        
+        orderToUse.forEach(columnKey => {
+            const td = document.createElement('td');
+            td.className = 'breakdown-cell';
+            td.setAttribute('data-column', columnKey);
+            td.innerHTML = createPartialBreakdownCellContent(columnKey);
+            breakdownRow.appendChild(td);
+        });
+        
+        // Event listener ekle
+        breakdownRow.addEventListener('click', async () => {
+            const targetDate = isPlanned ? (item.planlananTarih || item.onerilenTeslimTarih) : item.onerilenTeslimTarih;
+            if (targetDate && window.chartManager) {
+                const week = this.getWeekFromDate(targetDate);
+                await window.chartManager.focusOnWeek(week, targetDate);
+            }
+        });
         
         return breakdownRow;
     }
