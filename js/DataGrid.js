@@ -1481,19 +1481,13 @@ class DataGrid {
                 case 'sevkMiktari':
                     return item.SEVK_MIKTARI || item.sevkMiktari || 0;
                 case 'bakiyeMiktar':
-                    const siparisMiktar = (() => {
-                        const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
-                        const figurSayisi = item.figurSayisi || 0;
-                        return planMiktar * figurSayisi;
-                    })();
+                    const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
                     const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
-                    return Math.max(0, siparisMiktar - sevkMiktari); // Negatif değerleri önlemek için
+                    return Math.max(0, siparisMiktarHesaplanan - sevkMiktari); // Negatif değerleri önlemek için
                 case 'figurSayisi':
                     return item.figurSayisi || 0;
                 case 'siparisMiktarHesaplanan':
-                    const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
-                    const figurSayisi = item.figurSayisi || 0;
-                    return planMiktar * figurSayisi;
+                    return item.siparisMiktarHesaplanan || 0;
                 case 'gercekMiktar':
                     return item.gercekMiktar || 0;
                 case 'planlananMiktar':
@@ -2035,8 +2029,7 @@ class DataGrid {
         
         // Sipariş miktarı, sevk miktarı ve bakiye miktarı hesaplamaları
         const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
-        const figurSayisi = item.figurSayisi || 0;
-        const siparisMiktarHesaplanan = planMiktar * figurSayisi;
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
         const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
         const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
         
@@ -6325,16 +6318,12 @@ class DataGrid {
             { key: 'toplamSure', label: 'Toplam Süre', value: item.toplamSure || 0 },
             { key: 'planMiktar', label: 'Sipariş Miktar (Kalıp)', value: item.planMiktar || 0 },
             { key: 'figurSayisi', label: 'Figür Sayısı', value: item.figurSayisi || 0 },
-            { key: 'siparisMiktarHesaplanan', label: 'Sipariş Miktar (Adet)', value: (() => {
-                const planMiktar = item.planMiktar || 0;
-                const figurSayisi = item.figurSayisi || 0;
-                return planMiktar * figurSayisi;
-            })() },
+            { key: 'siparisMiktarHesaplanan', label: 'Sipariş Miktar (Adet)', value: item.siparisMiktarHesaplanan || 0 },
             { key: 'sevkMiktari', label: 'Sevk Miktarı', value: item.sevkMiktari || 0 },
             { key: 'bakiyeMiktar', label: 'Bakiye Miktar', value: (() => {
-                const siparisMiktar = (item.planMiktar || 0) * (item.figurSayisi || 0);
+                const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
                 const sevkMiktari = item.sevkMiktari || 0;
-                return Math.max(0, siparisMiktar - sevkMiktari);
+                return Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
             })() },
             { key: 'gercekMiktar', label: 'Gerçekleşen Miktar', value: item.gercekMiktar || 0 },
             { key: 'planlananMiktar', label: 'Planlanan Miktar', value: (() => {
