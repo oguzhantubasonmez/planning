@@ -6033,7 +6033,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">İş Emri No</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Firma</th>';
-        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
+        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Adet)</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Plan Tarihi</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Makine</th>';
@@ -6083,7 +6083,7 @@ class DataGrid {
                     // Önceki iş emrinin plan miktarına göre tarih hesapla (basit mantık)
                     // Her iş emri için 1 gün ekle (daha gelişmiş mantık eklenebilir)
                     const prevOrder = sortedOrders[index - 1];
-                    const prevPlanMiktar = parseInt(prevOrder.PLAN_MIKTAR || 0);
+                    const prevPlanMiktar = parseInt(prevOrder.SIPARIS_MIKTAR || 0);
                     // Basit mantık: her iş emri için 1 gün ekle
                     currentDate.setDate(currentDate.getDate() + 1);
                     planDate = currentDate.toISOString().split('T')[0];
@@ -6117,12 +6117,12 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #2d3748; font-size: 13px; vertical-align: middle; font-weight: ${isSelected ? '600' : '400'};">${order.ISEMRI_NO || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${order.IMALAT_TURU || order.MALHIZ_ADI || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${order.FIRMA_ADI || '-'}</td>`;
-            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${order.PLAN_MIKTAR || 0}</td>`;
+            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${order.SIPARIS_MIKTAR || 0}</td>`;
             const quantityInputStyle = 'width: 90px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;';
             const dateInputStyle = 'padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box; min-width: 140px;';
             
-            // Planlanan miktarı belirle: planlanmış veya kısmi planlanmış iş emirleri için PLANLANAN_MIKTAR, diğerleri için PLAN_MIKTAR
-            const displayQuantity = (isPlanned || isKismiPlanlandi) ? (order.PLANLANAN_MIKTAR || order.PLAN_MIKTAR || 0) : (order.PLAN_MIKTAR || 0);
+            // Planlanan miktarı belirle: planlanmış veya kısmi planlanmış iş emirleri için PLANLANAN_MIKTAR, diğerleri için SIPARIS_MIKTAR
+            const displayQuantity = (isPlanned || isKismiPlanlandi) ? (order.PLANLANAN_MIKTAR || order.SIPARIS_MIKTAR || 0) : (order.SIPARIS_MIKTAR || 0);
             
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
                 <input type="number" 
@@ -6130,7 +6130,7 @@ class DataGrid {
                        data-isemri-id="${order.ISEMRI_ID}"
                        value="${displayQuantity}" 
                        min="1"
-                       max="${order.PLAN_MIKTAR || ''}"
+                       max="${order.SIPARIS_MIKTAR || ''}"
                        ${isPlanned ? 'readonly' : ''}
                        ${isKismiPlanlandi ? '' : ''}
                        style="${quantityInputStyle}${isPlanned ? ' cursor: default; opacity: 0.7;' : ' cursor: text;'}"
@@ -12568,7 +12568,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme Kodu</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Firma</th>';
-        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
+        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Adet)</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Tarih</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Makine</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
@@ -12580,10 +12580,10 @@ class DataGrid {
         
         items.forEach((item, index) => {
             const rowBgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-            const planMiktar = item.planMiktar || item.siparisMiktar || 0;
+            const siparisMiktar = item.siparisMiktarHesaplanan || 0;
             const waitingMiktar = item.breakdowns && item.breakdowns.length > 0
-                ? item.breakdowns.find(b => b.durum === 'Beklemede')?.planlananMiktar || planMiktar
-                : planMiktar;
+                ? item.breakdowns.find(b => b.durum === 'Beklemede')?.planlananMiktar || siparisMiktar
+                : siparisMiktar;
             
             // Önerilen teslim tarihini varsayılan olarak kullan, yoksa bugünün tarihini kullan
             let defaultDate = todayStr;
@@ -12601,7 +12601,7 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.imalatTuru || item.malhizAdi || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.malhizKodu || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.firmaAdi || '-'}</td>`;
-            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${planMiktar}</td>`;
+            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${siparisMiktar}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
                 <input type="date" 
                        class="bulk-planning-date-input" 
@@ -12627,7 +12627,7 @@ class DataGrid {
                        data-isemri-id="${item.isemriId}"
                        value="${waitingMiktar}" 
                        min="1"
-                       max="${planMiktar}"
+                       max="${siparisMiktar}"
                        style="width: 90px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;"
                        onfocus="this.style.borderColor='#40916c'; this.style.boxShadow='0 0 0 3px rgba(64, 145, 108, 0.1)';" 
                        onblur="this.style.borderColor='#cbd5e0'; this.style.boxShadow='none';" />

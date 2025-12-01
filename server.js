@@ -4303,14 +4303,14 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                     }
                 }
                 
-                // İş emrinin sipariş miktarını kontrol et
+                // İş emrinin sipariş miktarını kontrol et (Sipariş Miktar (Adet) - SIPARIS_MIKTAR)
                 const siparisQuery = `
                     WITH ISEMRI_FILTERED AS (
                         SELECT * 
                         FROM ERPURT.T_URT_ISEMRI 
                         WHERE FABRIKA_KOD = 120 AND DURUMU = 1
                     )
-                    SELECT VD.PLAN_MIKTAR 
+                    SELECT NVL(VD.PLAN_MIKTAR, 0) * NVL(VD.FIGUR_SAYISI, 1) AS SIPARIS_MIKTAR
                     FROM ERPREADONLY.V_ISEMRI_DETAY VD
                     INNER JOIN ISEMRI_FILTERED IF ON VD.ISEMRI_ID = IF.ISEMRI_ID
                     WHERE VD.ISEMRI_ID = :isemriId
@@ -4321,7 +4321,7 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                     continue;
                 }
                 
-                const siparisMiktar = siparisResult.rows[0][0];
+                const siparisMiktar = siparisResult.rows[0][0] || 0;
                 const isPartialPlanning = parseInt(planlananMiktar) < siparisMiktar;
                 
                 let createdPlanIdOut = null;
