@@ -2007,15 +2007,106 @@ class DataGrid {
         breakdownRow.addEventListener('click', async () => {
             const targetDate = breakdown.planTarihi || item.onerilenTeslimTarih;
             if (targetDate && window.chartManager) {
+                // PlanId'yi bul - önce breakdown'dan, yoksa item'dan
+                let planId = breakdown.planId;
+                
+                console.log('🔍 Breakdown satırına tıklandı - PlanId arama:', {
+                    breakdownPlanId: breakdown.planId,
+                    breakdownParcaNo: breakdown.parcaNo,
+                    breakdownPlanTarihi: breakdown.planTarihi,
+                    breakdownMakAd: breakdown.makAd,
+                    breakdownDurum: breakdown.durum,
+                    itemIsemriId: item.isemriId,
+                    itemIsemriNo: item.isemriNo,
+                    breakdownsCount: item.breakdowns ? item.breakdowns.length : 0
+                });
+                
+                // Eğer breakdown'da planId yoksa, breakdowns array'inde ara
+                if (!planId && item.breakdowns && Array.isArray(item.breakdowns)) {
+                    console.log('🔍 Breakdowns array\'inde planId aranıyor:', item.breakdowns.map(b => ({
+                        planId: b.planId,
+                        parcaNo: b.parcaNo,
+                        planTarihi: b.planTarihi,
+                        makAd: b.makAd,
+                        durum: b.durum
+                    })));
+                    
+                    // Önce aynı parcaNo ile eşleşen breakdown'ı bul
+                    let matchingBreakdown = item.breakdowns.find(b => 
+                        b.parcaNo === breakdown.parcaNo && b.planId
+                    );
+                    
+                    // Eğer parcaNo ile bulunamazsa, aynı planTarihi ve makAd ile eşleşen breakdown'ı bul
+                    if (!matchingBreakdown) {
+                        matchingBreakdown = item.breakdowns.find(b => {
+                            const tarihMatch = b.planTarihi === breakdown.planTarihi;
+                            const makineMatch = b.makAd === breakdown.makAd;
+                            const planIdVar = b.planId;
+                            const durumMatch = b.durum === 'Planlandı';
+                            return tarihMatch && makineMatch && planIdVar && durumMatch;
+                        });
+                    }
+                    
+                    // Hala bulunamazsa, sadece planTarihi ve durum ile eşleşen breakdown'ı bul
+                    if (!matchingBreakdown) {
+                        matchingBreakdown = item.breakdowns.find(b => 
+                            b.planTarihi === breakdown.planTarihi && 
+                            b.planId && 
+                            b.durum === 'Planlandı'
+                        );
+                    }
+                    
+                    // Hala bulunamazsa, sadece planTarihi ile eşleşen herhangi bir planId'li breakdown'ı bul
+                    if (!matchingBreakdown) {
+                        matchingBreakdown = item.breakdowns.find(b => 
+                            b.planTarihi === breakdown.planTarihi && 
+                            b.planId
+                        );
+                    }
+                    
+                    if (matchingBreakdown && matchingBreakdown.planId) {
+                        planId = matchingBreakdown.planId;
+                        console.log('✅ PlanId breakdowns array\'inden bulundu:', {
+                            planId: planId,
+                            parcaNo: breakdown.parcaNo,
+                            planTarihi: breakdown.planTarihi,
+                            makAd: breakdown.makAd,
+                            matchingBreakdown: {
+                                planId: matchingBreakdown.planId,
+                                parcaNo: matchingBreakdown.parcaNo,
+                                planTarihi: matchingBreakdown.planTarihi,
+                                makAd: matchingBreakdown.makAd
+                            }
+                        });
+                    } else {
+                        console.warn('⚠️ PlanId breakdowns array\'inde bulunamadı:', {
+                            breakdown: {
+                                parcaNo: breakdown.parcaNo,
+                                planTarihi: breakdown.planTarihi,
+                                makAd: breakdown.makAd,
+                                durum: breakdown.durum
+                            },
+                            allBreakdowns: item.breakdowns.map(b => ({
+                                planId: b.planId,
+                                parcaNo: b.parcaNo,
+                                planTarihi: b.planTarihi,
+                                makAd: b.makAd,
+                                durum: b.durum
+                            }))
+                        });
+                    }
+                }
+                
+                // Hala planId yoksa ve durum "Planlandı" ise, chart'ta isemriNo ile arama yapılacak
                 const week = this.getWeekFromDate(targetDate);
-                // Önce haftaya odaklan
-                await window.chartManager.focusOnWeek(week, targetDate);
+                // Önce haftaya odaklan (planId'yi de geçir)
+                await window.chartManager.focusOnWeek(week, targetDate, item.isemriNo, planId);
                 // Sonra plan ID ile segment seçimi yap
                 if (typeof window.chartManager.setBreakdownSelection === 'function') {
                     window.chartManager.setBreakdownSelection({
                         isemriId: item.isemriId,
                         isemriNo: item.isemriNo,
-                        planId: breakdown.planId,
+                        planId: planId || null,
                         parcaNo: breakdown.parcaNo,
                         planlananMiktar: breakdown.durum === 'Planlandı' ? (breakdown.planlananMiktar || 0) : 0,
                         agirlik: brkKg,

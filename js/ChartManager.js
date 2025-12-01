@@ -64,8 +64,149 @@ class ChartManager {
             const week = this.getWeekString(new Date(payload.planlananTarih));
             this.selectedWeek = week;
         }
+        
+        // Eğer selectedMachine varsa ve mevcut makine filtresinden farklıysa, makine filtresini güncelle
+        if (payload?.selectedMachine && payload.selectedMachine !== this.selectedMachine) {
+            this.selectedMachine = payload.selectedMachine;
+            console.log('Makine filtresi breakdown selection\'a göre güncellendi:', payload.selectedMachine);
+            
+            // DataGrid'deki makine filtresini de güncelle (UI senkronizasyonu için)
+            if (window.dataGrid) {
+                const makinaFilter = document.getElementById('makinaFilter');
+                if (makinaFilter) {
+                    // Önce makine seçeneklerini güncelle, sonra değeri ayarla
+                    window.dataGrid.updateMakinaFilter(true).then(() => {
+                        makinaFilter.value = payload.selectedMachine;
+                        if (window.dataGrid.filters) {
+                            window.dataGrid.filters.makina = payload.selectedMachine;
+                        }
+                        console.log('DataGrid makine filtresi güncellendi:', payload.selectedMachine);
+                    }).catch(err => {
+                        console.warn('DataGrid makine filtresi güncelleme hatası:', err);
+                    });
+                }
+            }
+        }
+        
         this.updateCharts();
         this.updateDailyChartTitle();
+        
+        // Chart güncellendikten sonra segment'i bul ve seç
+        if (payload?.planlananTarih && (payload?.planId || payload?.isemriNo)) {
+            setTimeout(() => {
+                this.selectSegmentByBreakdown(payload);
+            }, 400);
+        }
+    }
+    
+    /**
+     * Breakdown selection'a göre segment'i bulur ve seçer
+     */
+    selectSegmentByBreakdown(payload) {
+        const { planId, isemriNo, planlananTarih } = payload;
+        if (!planlananTarih) return;
+        
+        // Tarihi normalize et
+        let targetDateStr = planlananTarih;
+        if (planlananTarih instanceof Date) {
+            targetDateStr = planlananTarih.toISOString().split('T')[0];
+        } else if (typeof planlananTarih === 'string') {
+            if (planlananTarih.includes('T')) {
+                targetDateStr = planlananTarih.split('T')[0];
+            } else if (planlananTarih.includes(' ')) {
+                targetDateStr = planlananTarih.split(' ')[0];
+            } else if (planlananTarih.includes('.')) {
+                const parts = planlananTarih.split('.');
+                if (parts.length === 3) {
+                    targetDateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+        }
+        
+        // Hafta başlangıcından gün indeksini hesapla
+        const week = this.getWeekString(new Date(targetDateStr));
+        const weekStartDate = this.getWeekStartDate(week);
+        const weekStartNormalized = new Date(weekStartDate);
+        weekStartNormalized.setHours(0, 0, 0, 0);
+        
+        const targetDateObj = new Date(targetDateStr);
+        if (isNaN(targetDateObj.getTime())) {
+            console.error('selectSegmentByBreakdown - Geçersiz tarih:', targetDateStr);
+            return;
+        }
+        targetDateObj.setHours(0, 0, 0, 0);
+        
+        const dayDiff = Math.floor((targetDateObj - weekStartNormalized) / (1000 * 60 * 60 * 24));
+        const dayIndex = Math.max(0, Math.min(6, dayDiff));
+        
+        let segmentElement = null;
+        
+        // Önce planId ile ara (daha spesifik)
+        if (planId) {
+            segmentElement = document.querySelector(
+                `.stacked-segment[data-plan-id="${planId}"][data-day-index="${dayIndex}"]`
+            );
+            if (!segmentElement) {
+                // PlanId ile bulunamazsa, tüm günlerde ara
+                segmentElement = document.querySelector(
+                    `.stacked-segment[data-plan-id="${planId}"]`
+                );
+            }
+        }
+        
+        // PlanId ile bulunamazsa, isemriNo ile ara
+        if (!segmentElement && isemriNo) {
+            segmentElement = document.querySelector(
+                `.stacked-segment[data-isemri-no="${isemriNo}"][data-day-index="${dayIndex}"]`
+            );
+        }
+        
+        if (segmentElement) {
+            const foundDayIndex = parseInt(segmentElement.dataset.dayIndex);
+            const segmentIndex = parseInt(segmentElement.dataset.segmentIndex);
+            const weekString = this.getWeekString(new Date(targetDateStr));
+            console.log('Segment breakdown ile bulundu:', { 
+                isemriNo, 
+                planId,
+                expectedDayIndex: dayIndex, 
+                foundDayIndex, 
+                segmentIndex 
+            });
+            this.selectSegment(foundDayIndex, segmentIndex, weekString, isemriNo);
+        } else {
+            // Eğer hala bulunamazsa, tüm günlerde isemriNo ile ara (fallback)
+            if (isemriNo) {
+                const allSegments = document.querySelectorAll(
+                    `.stacked-segment[data-isemri-no="${isemriNo}"]`
+                );
+                if (allSegments.length > 0) {
+                    const firstSegment = allSegments[0];
+                    const foundDayIndex = parseInt(firstSegment.dataset.dayIndex);
+                    const foundSegmentIndex = parseInt(firstSegment.dataset.segmentIndex);
+                    const weekString = this.getWeekString(new Date(targetDateStr));
+                    console.log('Segment breakdown ile farklı günde bulundu:', { 
+                        isemriNo, 
+                        expectedDayIndex: dayIndex, 
+                        foundDayIndex, 
+                        foundSegmentIndex 
+                    });
+                    this.selectSegment(foundDayIndex, foundSegmentIndex, weekString, isemriNo);
+                } else {
+                    console.warn('Segment breakdown ile bulunamadı:', { 
+                        isemriNo, 
+                        planId,
+                        dayIndex, 
+                        targetDate: targetDateStr 
+                    });
+                }
+            } else {
+                console.warn('Segment breakdown ile bulunamadı:', { 
+                    planId,
+                    dayIndex, 
+                    targetDate: targetDateStr 
+                });
+            }
+        }
     }
 
     /**
@@ -932,7 +1073,7 @@ class ChartManager {
      * @param {string} targetDate - Hedef tarih (opsiyonel, gün seçimi için)
      * @param {string} isemriNo - İş emri numarası (opsiyonel, segment seçimi için)
      */
-    async focusOnWeek(weekString, targetDate = null, isemriNo = null) {
+    async focusOnWeek(weekString, targetDate = null, isemriNo = null, planId = null) {
         // Tablodan tıklandığında tarih filtresinin uygulanmaması için flag
         this._skipWeekSelectedCallback = true;
         this._skipDaySelectedCallback = true;
@@ -1089,36 +1230,74 @@ class ChartManager {
                 // skipCallback=true: Tablodan tıklandığında filtre uygulanmaması için
                 await this.selectDay(dayIndex, weekString, true);
                 
-                // Eğer isemriNo verilmişse, o günde ilgili segment'i bul ve seç
-                if (isemriNo) {
+                // Eğer isemriNo veya planId verilmişse, o günde ilgili segment'i bul ve seç
+                if (isemriNo || this.breakdownSelection?.planId) {
                     // Günlük chart güncellendiğinde segment'i bulmak için kısa bir gecikme
                     setTimeout(() => {
-                        // Önce doğru gün indeksine sahip segment'i bul
-                        const segmentElement = document.querySelector(
-                            `.stacked-segment[data-isemri-no="${isemriNo}"][data-day-index="${dayIndex}"]`
-                        );
-                        if (segmentElement) {
-                            const segmentIndex = parseInt(segmentElement.dataset.segmentIndex);
-                            console.log('Segment bulundu:', { isemriNo, dayIndex, segmentIndex });
-                            this.selectSegment(dayIndex, segmentIndex, weekString, isemriNo);
-                        } else {
-                            // Eğer bulunamazsa, tüm günlerde ara (fallback)
-                            const allSegments = document.querySelectorAll(
-                                `.stacked-segment[data-isemri-no="${isemriNo}"]`
+                        let segmentElement = null;
+                        
+                        // Önce planId ile ara (daha spesifik)
+                        if (this.breakdownSelection?.planId) {
+                            segmentElement = document.querySelector(
+                                `.stacked-segment[data-plan-id="${this.breakdownSelection.planId}"][data-day-index="${dayIndex}"]`
                             );
-                            if (allSegments.length > 0) {
-                                const firstSegment = allSegments[0];
-                                const foundDayIndex = parseInt(firstSegment.dataset.dayIndex);
-                                const foundSegmentIndex = parseInt(firstSegment.dataset.segmentIndex);
-                                console.log('Segment farklı günde bulundu:', { 
-                                    isemriNo, 
-                                    expectedDayIndex: dayIndex, 
-                                    foundDayIndex, 
-                                    foundSegmentIndex 
-                                });
-                                this.selectSegment(foundDayIndex, foundSegmentIndex, weekString, isemriNo);
+                            if (!segmentElement) {
+                                // PlanId ile bulunamazsa, tüm günlerde ara
+                                segmentElement = document.querySelector(
+                                    `.stacked-segment[data-plan-id="${this.breakdownSelection.planId}"]`
+                                );
+                            }
+                        }
+                        
+                        // PlanId ile bulunamazsa, isemriNo ile ara
+                        if (!segmentElement && isemriNo) {
+                            segmentElement = document.querySelector(
+                                `.stacked-segment[data-isemri-no="${isemriNo}"][data-day-index="${dayIndex}"]`
+                            );
+                        }
+                        
+                        if (segmentElement) {
+                            const foundDayIndex = parseInt(segmentElement.dataset.dayIndex);
+                            const segmentIndex = parseInt(segmentElement.dataset.segmentIndex);
+                            console.log('Segment bulundu:', { 
+                                isemriNo, 
+                                planId: this.breakdownSelection?.planId,
+                                expectedDayIndex: dayIndex, 
+                                foundDayIndex, 
+                                segmentIndex 
+                            });
+                            this.selectSegment(foundDayIndex, segmentIndex, weekString, isemriNo);
+                        } else {
+                            // Eğer hala bulunamazsa, tüm günlerde isemriNo ile ara (fallback)
+                            if (isemriNo) {
+                                const allSegments = document.querySelectorAll(
+                                    `.stacked-segment[data-isemri-no="${isemriNo}"]`
+                                );
+                                if (allSegments.length > 0) {
+                                    const firstSegment = allSegments[0];
+                                    const foundDayIndex = parseInt(firstSegment.dataset.dayIndex);
+                                    const foundSegmentIndex = parseInt(firstSegment.dataset.segmentIndex);
+                                    console.log('Segment farklı günde bulundu:', { 
+                                        isemriNo, 
+                                        expectedDayIndex: dayIndex, 
+                                        foundDayIndex, 
+                                        foundSegmentIndex 
+                                    });
+                                    this.selectSegment(foundDayIndex, foundSegmentIndex, weekString, isemriNo);
+                                } else {
+                                    console.warn('Segment bulunamadı:', { 
+                                        isemriNo, 
+                                        planId: this.breakdownSelection?.planId,
+                                        dayIndex, 
+                                        targetDate: targetDateStr 
+                                    });
+                                }
                             } else {
-                                console.warn('Segment bulunamadı:', { isemriNo, dayIndex, targetDate: targetDateStr });
+                                console.warn('Segment bulunamadı:', { 
+                                    planId: this.breakdownSelection?.planId,
+                                    dayIndex, 
+                                    targetDate: targetDateStr 
+                                });
                             }
                         }
                     }, 300);

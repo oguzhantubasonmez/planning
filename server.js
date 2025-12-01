@@ -2279,7 +2279,7 @@ app.get('/api/planning-data', async (req, res) => {
                 VD.PLAN_MIKTAR,
                 VD.FIGUR_SAYISI,
                 VD.IMALAT_TURU,
-                VD.MAK_AD,
+                NVL(PV.MAK_AD, VD.MAK_AD) AS MAK_AD,
                 VD.BOLUM_ADI,
                 VD.FIRMA_ADI
             FROM ERPREADONLY.PLANLAMA_VERI PV
