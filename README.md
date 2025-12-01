@@ -32,14 +32,6 @@ npm run frontend:dev
 
 5. Tarayıcıda `http://localhost:3001` adresini açın
 
-## Veritabanı Bağlantı Bilgileri
-
-- Host: 172.16.34.8
-- Port: 1521
-- SID: ORCL
-- Kullanıcı: ERPREADONLY
-- Şifre: ERPREADONLY
-
 ## Dosya Yapısı
 
 ```
