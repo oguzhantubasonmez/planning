@@ -14,6 +14,7 @@ class DataGrid {
         this.isSubmittingQueuePlan = false; // çift submit engelle
         this.filters = {
             bolum: '',
+            ustMakineGrubu: '',
             makina: '',
             firma: '',
 			malzeme: [],
@@ -21,6 +22,52 @@ class DataGrid {
             search: '',
             tarihBaslangic: '',
             tarihBitis: ''
+        };
+        
+        // Bölüm-Üst Makine-Makine Mapping
+        this.machineMapping = {
+            '01.MAÇAHANE': {
+                'Furan Maça': ['Furan El Maçası'],
+                'Sıcak Maça Makinesi Grubu': ['1 Numaralı Sıcak Maça Makinesi', '2 Numaralı Sıcak Maça Makinesi'],
+                'Otomatik Maça Makinesi Grubu': ['25 Numaralı Maça Makinesi Protek4', '24 Numaralı Maça Makinesi Protek3', '23 Numaralı Maça Makinesi Protek2', '22 Numaralı Maça Makinesi Protek1', '20 Numaralı Maça Makinesi', '19 Numaralı Maça Makinesi'],
+                'Orta Maça Makineleri': ['16 Numaralı Maça Makinesi', '15 Numaralı Maça Makinesi', '14 Numaralı Maça Makinesi', '11 Numaralı Maça Makinesi'],
+                'Küçük Maça Makineleri': ['9 Numaralı Maça Makinesi', '8 Numaralı Maça Makinesi', '7 Numaralı Maça Makinesi', '6 Numaralı Maça Makinesi', '13 Numaralı Maça Makinesi', '12 Numaralı Maça Makinesi', '10 Numaralı Maça Makinesi'],
+                'El Maçası': ['El Maçası'],
+                'Büyük Maça Makineleri': ['18 Numaralı Maça Makinesi', '17 Numaralı Maça Makinesi']
+            },
+            '02.KALIPLAMA': {
+                'Yaş Kum Hatları': ['Hunter 2', 'Hunter 1', 'Disa -2 Match 20/24', 'Disa -1 Match 24/28'],
+                'Reçineli Kalıplama Hatları': ['Yer Kalıbı', 'Küçük Omega Hattı', 'Büyük Omega Hattı']
+            },
+            '04.DÖKÜM': {
+                'DÖKÜM POTALARI': ['300 KİLOLUK POTA', '600 KİLOLUK POTA', '1000 KİLOLUK POTA', '2000 KİLOLUK POTA', '12000 KİLOLUK POTA', '3000 KİLOLUK POTA', '500 KİLOLUK POTA', '6000 KİLOLUK POTA']
+            },
+            '05.TAŞLAMA': {
+                'Büyük Parça Taşlama': ['Havalı Canavar 1', 'Havalı Canavar 2', 'Havalı Canavar 3', 'Havalı Canavar 4', 'Havalı Canavar 5', 'Havalı Canavar 6', 'Havalı Canavar 7', 'Havalı Canavar 8', 'Havalı Canavar 9', 'Havalı Canavar 10', 'Havalı Canavar 11', 'Havalı Canavar 12', 'Havalı Canavar 13', 'Havalı Canavar 14', 'Havalı Canavar 15', 'El Taşı'],
+                'Küçük Parça Taşlama': ['Dayama Taşlama Makinesi 1', 'Dayama Taşlama Makinesi 2', 'Dayama Taşlama Makinesi 3', 'Dayama Taşlama Makinesi 4', 'Dayama Taşlama Makinesi 5', 'Dayama Taşlama Makinesi 6'],
+                'Maus CNC Taşlama Makinesi': ['Maus CNC Taşlama Makinesi'],
+                'Denizciler Grubu': ['Denizciler CNC Taşlama Makinesi 1', 'Denizciler CNC Taşlama Makinesi 2'],
+                'Kenan grubu': ['Kenan CNC Taşlama Makinesi 1', 'Kenan CNC Taşlama Makinesi 2'],
+                'Koyama Grubu': ['Koyama CNC Taşlama Makinesi (No:2146)', 'Koyama CNC Taşlama Makinesi (No:2516)', 'Koyama CNC Taşlama Makinesi (No:2559)']
+            },
+            '06.BOYAHANE': {
+                'Toz Boya Hattı': ['Toz Boya Hattı'],
+                'Yaş Boya Hattı': ['Yaş Boya Hattı 1', 'Yaş Boya Hattı 2']
+            },
+            '07.İŞLEME': {
+                'Altor Ahşap İşleme CNC': ['Altor Ahşap İşleme CNC'],
+                'Dik İşlem Merkezi': ['Ajan Dik İşlem CNC 1', 'Ajan Dik İşlem CNC 2', 'Quaser Dik İşlem CNC 1', 'Quaser Dik İşlem CNC 2', 'Quaser Dik İşlem CNC 3', 'Awea Dik İşlem CNC', 'Sunmill JHV1300 CNC Dik İşlem Merkezi', 'Wele VB315 Köprü Tipi İşlem Merkezi', 'Sunmill JHV1500 CNC Dik İlem Merkezi'],
+                'Freze': ['Universal Freze'],
+                'Matkap': ['Sütunlu Matkap 1 (Kılavuz)', 'Sütunlu Matkap 2', 'Sütunlu Matkap 3', 'Sütunlu Matkap 4', 'Sütunlu Matkap 5 (Rayba)', 'Sütunlu Matkap 6 (Rayba)', 'Radyal Matkap'],
+                'Torna': ['Torna'],
+                'CNC Torna': ['Takisawa Yatay CNC Torna', 'Mazak Yatay CNC Torna', 'Doosan Puma V8 300M CNC Dik Torna', 'Doosan Puma VTR1620M CNC Dik Torna', 'Doosan Puma PV9 300M CNC Dik Torna', 'Universal Torna', 'Universal Torna 2000', 'Universal Torna 3000']
+            },
+            '08.PAKETLEME': {
+                'SEVKİYAT': ['SEVKİYAT']
+            },
+            'FASON İŞLEMLER': {
+                'Fason İşlemler': ['Fason İşlemler']
+            }
         };
         this.dateRange = {
             startDate: '',
@@ -58,17 +105,18 @@ class DataGrid {
                         <div class="filter-row">
                             <label for="bolumFilter">Bölüm Filtresi:</label>
                             <select id="bolumFilter">
+                                <option value="">Tümü</option>
+                            </select>
+                        </div>
+                        <div class="filter-row">
+                            <label for="ustMakineFilter">Üst Makine Grubu Filtresi:</label>
+                            <select id="ustMakineFilter">
+                                <option value="">Tümü</option>
                             </select>
                         </div>
                         <div class="filter-row">
                             <label for="makinaFilter">Makina Filtresi:</label>
                             <select id="makinaFilter">
-                                <option value="">Tümü</option>
-                            </select>
-                        </div>
-                        <div class="filter-row">
-                            <label for="firmaFilter">Firma Filtresi:</label>
-                            <select id="firmaFilter">
                                 <option value="">Tümü</option>
                             </select>
                         </div>
@@ -101,6 +149,12 @@ class DataGrid {
                                     <div id="durumList" class="multi-select-list"></div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="filter-row">
+                            <label for="firmaFilter">Firma Filtresi:</label>
+                            <select id="firmaFilter">
+                                <option value="">Tümü</option>
+                            </select>
                         </div>
                     </div>
                     <div class="button-column">
@@ -196,7 +250,6 @@ class DataGrid {
         const defaultOrder = ['durum', 'isemriNo', 'malhizKodu', 'imalatTuru', 'makAd', 'tarih', 'agirlik', 'brutAgirlik', 'toplamSure', 'planMiktar', 'figurSayisi', 'siparisMiktarHesaplanan', 'sevkMiktari', 'bakiyeMiktar', 'gercekMiktar', 'planlananMiktar', 'planlananTarih', 'onerilenTeslimTarih', 'firmaAdi', 'aciklama'];
         const missingColumns = Object.keys(columnLabels).filter(key => !this.columnOrder.includes(key));
         if (missingColumns.length > 0) {
-            console.log('Eksik sütunlar bulundu, columnOrder\'a ekleniyor:', missingColumns);
             // Eksik sütunları varsayılan konumlarına ekle
             missingColumns.forEach(missingKey => {
                 const defaultIndex = defaultOrder.indexOf(missingKey);
@@ -281,6 +334,7 @@ class DataGrid {
      */
     bindEvents() {
         const bolumFilter = document.getElementById('bolumFilter');
+        const ustMakineFilter = document.getElementById('ustMakineFilter');
         const makinaFilter = document.getElementById('makinaFilter');
         const firmaFilter = document.getElementById('firmaFilter');
 		const malzemeControl = document.getElementById('malzemeControl');
@@ -305,19 +359,43 @@ class DataGrid {
         if (bolumFilter) {
             bolumFilter.addEventListener('change', async (e) => {
                 this.filters.bolum = e.target.value;
+                this.filters.ustMakineGrubu = '';
+                this.filters.makina = '';
                 
-                // "Tanımsız" filtresi aktifse makina filtresini güncelleme ve chart güncelleme yapma
+                // "Tanımsız" filtresi aktifse
                 if (e.target.value === 'tanımsız') {
+                    if (ustMakineFilter) {
+                        ustMakineFilter.innerHTML = '<option value="">Tümü</option>';
+                    }
+                    if (makinaFilter) {
+                        makinaFilter.innerHTML = '<option value="">Tümü</option>';
+                    }
                     this.applyFilters();
-                    return; // Sadece görüntüleme amaçlı, chart güncelleme yok
+                    return;
                 }
                 
-                await this.updateMakinaFilter(); // Makina filtresini güncelle
+                // Üst makine grubu filtresini güncelle
+                await this.updateUstMakineFilter();
+                // Makina filtresini sıfırla
+                if (makinaFilter) {
+                    makinaFilter.innerHTML = '<option value="">Tümü</option>';
+                }
                 this.applyFilters();
+                
                 // ChartManager'ı güncelle
                 if (window.chartManager) {
                     await window.chartManager.updateDepartmentFilter(e.target.value);
                 }
+            });
+        }
+        if (ustMakineFilter) {
+            ustMakineFilter.addEventListener('change', async (e) => {
+                this.filters.ustMakineGrubu = e.target.value;
+                this.filters.makina = '';
+                
+                // Makina filtresini güncelle
+                await this.updateMakinaFilter();
+                this.applyFilters();
             });
         }
         if (makinaFilter) {
@@ -415,7 +493,6 @@ class DataGrid {
                     return;
                 }
                 
-                console.log('Hafta aralığı uygulanıyor:', `${startYear}-W${startWeek}`, '-', `${endYear}-W${endWeek}`);
                 window.chartManager.setWeekRangeWithYear(startYear, startWeek, endYear, endWeek);
             });
         }
@@ -703,7 +780,7 @@ class DataGrid {
     getWeeksInYear(year) {
         // ISO 8601: 31 Aralık'ın hafta numarasını kontrol et
         const dec31 = new Date(year, 11, 31);
-        const weekString = this.getWeekFromDate(dec31.toISOString().split('T')[0]);
+        const weekString = this.getWeekFromDate(this.formatDateISO(dec31));
         if (weekString) {
             const weekYear = parseInt(weekString.split('-W')[0]);
             const weekNum = parseInt(weekString.split('-W')[1]);
@@ -711,7 +788,7 @@ class DataGrid {
             // bir önceki haftaya bak
             if (weekYear !== year) {
                 const dec28 = new Date(year, 11, 28);
-                const weekString28 = this.getWeekFromDate(dec28.toISOString().split('T')[0]);
+                const weekString28 = this.getWeekFromDate(this.formatDateISO(dec28));
                 if (weekString28) {
                     const weekNum28 = parseInt(weekString28.split('-W')[1]);
                     return weekNum28;
@@ -766,7 +843,7 @@ class DataGrid {
         
         // Mevcut haftayı hesapla
         const currentDate = new Date();
-        const currentWeek = this.getWeekFromDate(currentDate.toISOString().split('T')[0]);
+        const currentWeek = this.getWeekFromDate(this.formatDateISO(currentDate));
         const currentWeekNumber = parseInt(currentWeek.split('-W')[1]);
         const currentYear = parseInt(currentWeek.split('-W')[0]);
         
@@ -835,6 +912,7 @@ class DataGrid {
             startDate: document.getElementById('startDateFilter')?.value || null,
             endDate: document.getElementById('endDateFilter')?.value || null,
             bolum: document.getElementById('bolumFilter')?.value || '',
+            ustMakineGrubu: document.getElementById('ustMakineFilter')?.value || '',
             makina: document.getElementById('makinaFilter')?.value || '',
             firma: document.getElementById('firmaFilter')?.value || '',
 			malzeme: Array.from(document.getElementById('malzemeList')?.querySelectorAll('input[type="checkbox"]:checked') || []).map(cb => cb.value)
@@ -861,155 +939,165 @@ class DataGrid {
      */
     async populateFilters() {
         const bolumFilter = document.getElementById('bolumFilter');
+        const ustMakineFilter = document.getElementById('ustMakineFilter');
         const makinaFilter = document.getElementById('makinaFilter');
         const firmaFilter = document.getElementById('firmaFilter');
+        
         // Element kontrolü
-		if (!bolumFilter || !makinaFilter || !firmaFilter) {
-			console.error('Filtre elementleri bulunamadı:', { bolumFilter, makinaFilter, firmaFilter });
+		if (!bolumFilter) {
+			console.error('bolumFilter elementi bulunamadı');
             return;
         }
-        // Bölüm filtreleri - alfabetik sıralama (01, 02, 03... şeklinde)
-        const bolumler = [...new Set(this.data.map(item => item.bolumAdi))].filter(b => b).sort();
-        // Bölüm seçeneklerini önce listele, sonra "TANIMSIZ" ve "TÜMÜ" seçeneklerini en alta ekle
-        bolumFilter.innerHTML = bolumler.map(bolum => `<option value="${bolum}">${bolum}</option>`).join('') +
+        if (!ustMakineFilter) {
+			console.error('ustMakineFilter elementi bulunamadı');
+            return;
+        }
+        if (!makinaFilter) {
+			console.error('makinaFilter elementi bulunamadı');
+            return;
+        }
+        if (!firmaFilter) {
+			console.error('firmaFilter elementi bulunamadı');
+            return;
+        }
+        
+        // Bölüm filtreleri - data'dan al, mapping'de olanları öncelikli yap
+        const dataBolumler = this.data && this.data.length > 0 
+            ? [...new Set(this.data.map(item => item.bolumAdi))].filter(b => b).sort()
+            : [];
+        const mappingBolumler = Object.keys(this.machineMapping).sort();
+        
+        // Mapping'de olanları önce, sonra data'dan gelen diğerlerini ekle
+        const allBolumler = [...new Set([...mappingBolumler, ...dataBolumler])].sort();
+        
+        bolumFilter.innerHTML = allBolumler.map(bolum => `<option value="${bolum}">${bolum}</option>`).join('') +
             '<option value="tanımsız">TANIMSIZ</option>' +
             '<option value="">TÜMÜ</option>';
-        // Varsayılan seçim: Kalıplama'yı tercih et; yoksa ilkini seç (tanımsız değilse)
-        if (bolumler.length > 0) {
+        
+        // Varsayılan seçim: Kalıplama'yı tercih et; yoksa ilkini seç
+        if (allBolumler.length > 0) {
             const normalize = (s) => (s || '').toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ğ/g, 'g');
-            const preferredIndex = bolumler.findIndex(b => normalize(b).includes('kalip'));
-            const defaultBolum = preferredIndex >= 0 ? bolumler[preferredIndex] : bolumler[0];
+            const preferredIndex = allBolumler.findIndex(b => normalize(b).includes('kalip'));
+            const defaultBolum = preferredIndex >= 0 ? allBolumler[preferredIndex] : allBolumler[0];
             bolumFilter.value = defaultBolum;
             this.filters.bolum = defaultBolum;
+            
+            // Varsayılan bölüm seçildiğinde üst makine gruplarını doldur
+            await this.updateUstMakineFilter();
+        } else {
+            ustMakineFilter.innerHTML = '<option value="">Tümü</option>';
         }
-        // Makina filtreleri (tüm makineler)
-        await this.updateMakinaFilter();
+        
+        // Makina filtresini sıfırla
+        makinaFilter.innerHTML = '<option value="">Tümü</option>';
+        
         // Firma filtreleri - alfabetik sıralama
-        const firmalar = [...new Set(this.data.map(item => item.firmaAdi))].filter(f => f).sort();
+        const firmalar = this.data && this.data.length > 0
+            ? [...new Set(this.data.map(item => item.firmaAdi))].filter(f => f).sort()
+            : [];
         firmaFilter.innerHTML = '<option value="">Tümü</option>' + 
             firmalar.map(firma => `<option value="${firma}">${firma}</option>`).join('');
 		
 		// Malzeme ve Durum filtrelerini sıfırdan oluştur
 		this.setupMalzemeFilter();
 		this.setupDurumFilter();
-        // ChartManager'ı da güncelle (default makina seçimi için)
-        if (window.chartManager && this.filters.makina) {
-            window.chartManager.updateMachineFilter(this.filters.makina);
-        }
-        // ChartManager'ı da güncelle (default bölüm seçimi için)
+        
+        // ChartManager'ı güncelle
         if (window.chartManager && this.filters.bolum) {
             window.chartManager.updateDepartmentFilter(this.filters.bolum);
         }
-        // Filtreleri uygula (sayfa açılışında default seçimler için)
+        
+        // Filtreleri uygula
         this.applyFilters();
     }
+    
     /**
-     * Makina filtresini günceller (bölüm seçimine göre)
-     * @param {boolean} skipDefaultSelection - Varsayılan seçimi atla mı?
+     * Üst makine grubu filtresini günceller (bölüm seçimine göre)
      */
-    async updateMakinaFilter(skipDefaultSelection = false) {
+    async updateUstMakineFilter() {
+        const ustMakineFilter = document.getElementById('ustMakineFilter');
+        if (!ustMakineFilter) {
+            console.warn('ustMakineFilter elementi bulunamadı');
+            return;
+        }
+        
+        const selectedBolum = this.filters.bolum;
+        
+        if (!selectedBolum || selectedBolum === 'tanımsız' || selectedBolum === '') {
+            ustMakineFilter.innerHTML = '<option value="">Tümü</option>';
+            return;
+        }
+        
+        // Mapping'den üst makine gruplarını al
+        const ustMakineGruplari = this.machineMapping[selectedBolum];
+        if (!ustMakineGruplari) {
+            // Mapping'de yoksa boş bırak (kullanıcı direkt makine seçebilir)
+            ustMakineFilter.innerHTML = '<option value="">Tümü</option>';
+            return;
+        }
+        
+        const gruplar = Object.keys(ustMakineGruplari).sort();
+        ustMakineFilter.innerHTML = '<option value="">Tümü</option>' + 
+            gruplar.map(grup => `<option value="${grup}">${grup}</option>`).join('');
+    }
+    /**
+     * Makina filtresini günceller (üst makine grubu seçimine göre)
+     */
+    async updateMakinaFilter() {
         const makinaFilter = document.getElementById('makinaFilter');
         if (!makinaFilter) return;
+        
         const selectedBolum = this.filters.bolum;
+        const selectedUstMakineGrubu = this.filters.ustMakineGrubu;
+        
+        if (!selectedBolum || selectedBolum === 'tanımsız' || selectedBolum === '') {
+            makinaFilter.innerHTML = '<option value="">Tümü</option>';
+            return;
+        }
+        
         let makineler = [];
         
-        // Seçili bölüme ait makineler - alfabetik sıralama
-        const allMachines = [...new Set(this.data
-            .filter(item => item.bolumAdi === selectedBolum)
-            .map(item => item.makAd)
-        )].filter(m => m).sort();
-        
-        // Maça bölümü için sadece üst makineleri göster
-        const isMacaBolumu = selectedBolum && selectedBolum.toLowerCase().includes('maça');
-        
-        if (isMacaBolumu) {
-            console.log('🏭 Maça bölümü tespit edildi, üst makineler filtreleniyor');
-            
-            // Üst makineleri kontrol et
-            const upperMachines = [];
-            for (const machine of allMachines) {
-                try {
-                    const machineInfo = await window.planningApp.checkMachineType(machine);
-                    if (machineInfo.isUpperMachine) {
-                        upperMachines.push(machine);
-                        console.log('✅ Üst makine eklendi:', machine);
-                    } else {
-                        console.log('⚙️ Alt makine atlandı:', machine);
-                    }
-                } catch (error) {
-                    console.log('❌ Makine kontrolü hatası, normal makine olarak eklendi:', machine);
-                    upperMachines.push(machine); // Hata durumunda normal makine olarak ekle
-                }
+        // Mapping'den makineleri al
+        const ustMakineGruplari = this.machineMapping[selectedBolum];
+        if (ustMakineGruplari) {
+            if (selectedUstMakineGrubu && selectedUstMakineGrubu !== '') {
+                // Seçili üst makine grubuna ait makineler
+                makineler = ustMakineGruplari[selectedUstMakineGrubu] || [];
+                } else {
+                // Tüm üst makine gruplarındaki makineleri birleştir
+                Object.values(ustMakineGruplari).forEach(makineListesi => {
+                    makineler.push(...makineListesi);
+                });
             }
-            
-            makineler = upperMachines;
-            console.log('📋 Maça bölümü üst makineleri:', makineler);
-        } else {
-            // Diğer bölümler için tüm makineleri göster
-            makineler = allMachines;
-            console.log('⚙️ Normal bölüm makineleri:', makineler);
         }
+        
+        // Mapping'de yoksa veya eksikse, data'dan al
+        if (makineler.length === 0 || !ustMakineGruplari) {
+            const dataMachines = [...new Set(this.data
+                .filter(item => item.bolumAdi === selectedBolum)
+                .map(item => item.makAd)
+            )].filter(m => m).sort();
+            makineler = [...new Set([...makineler, ...dataMachines])].sort();
+        } else {
+            // Tekrarları kaldır ve sırala
+            makineler = [...new Set(makineler)].sort();
+        }
+        
         makinaFilter.innerHTML = '<option value="">Tümü</option>' + 
             makineler.map(makina => `<option value="${makina}">${makina}</option>`).join('');
-        
-        // Varsayılan seçim yapma (restoreFilters için)
-        if (!skipDefaultSelection) {
-            const isMacaBolumuForDefault = selectedBolum && selectedBolum.toLowerCase().includes('maça');
-
-            // Maça bölümünde açılışta varsayılan makine seçme; veritabanı/API hazır değilken alt makineler sızmasın
-            if (isMacaBolumuForDefault) {
-                // Eğer üst makine kontrol servisi hazır değilse, seçimi boş bırak ve çık
-                if (!window.planningApp || typeof window.planningApp.checkMachineType !== 'function') {
-                    console.log('⏳ Üst makine servisi hazır değil; Maça için default makine seçilmeyecek');
-                    makinaFilter.value = '';
-                    this.filters.makina = '';
-                } else {
-                    // Maça'da da varsayılan makine seçmeyelim; kullanıcı seçim yapsın
-                    makinaFilter.value = '';
-                    this.filters.makina = '';
-                }
-            } else {
-                // Diğer bölümlerde mantıklı bir varsayılan seç
-            if (makineler.includes('DISA - 1')) {
-                makinaFilter.value = 'DISA - 1';
-                this.filters.makina = 'DISA - 1';
-                console.log('Default makina seçildi: DISA - 1');
-            } else if (makineler.length > 0) {
-                makinaFilter.value = makineler[0];
-                this.filters.makina = makineler[0];
-                console.log('Default makina seçildi:', makineler[0]);
-            } else {
-                makinaFilter.value = '';
-                this.filters.makina = '';
-                }
-            }
-            
-            // ChartManager'ı güncelle (makine filtresi varsa)
-            if (window.chartManager && this.filters.makina) {
-                window.chartManager.updateMachineFilter(this.filters.makina);
-            }
-            
-            // ChartManager'ı güncelle (bölüm filtresi için)
-            if (window.chartManager && this.filters.bolum) {
-                window.chartManager.updateDepartmentFilter(this.filters.bolum);
-            }
-            
-            // Filtreleri uygula (makina filtresi güncellendiğinde)
-            this.applyFilters();
-        }
     }
     /**
      * Filtreleri uygular
      */
     applyFilters() {
-        console.log('applyFilters başladı...');
-        
         // Filtre değerlerini al
         const bolumFilter = document.getElementById('bolumFilter');
+        const ustMakineFilter = document.getElementById('ustMakineFilter');
         const makinaFilter = document.getElementById('makinaFilter');
         const firmaFilter = document.getElementById('firmaFilter');
         const malzemeFilter = document.getElementById('malzemeFilter');
         if (bolumFilter) this.filters.bolum = bolumFilter.value;
+        if (ustMakineFilter) this.filters.ustMakineGrubu = ustMakineFilter.value;
         if (makinaFilter) this.filters.makina = makinaFilter.value;
         if (firmaFilter) this.filters.firma = firmaFilter.value;
 		if (malzemeFilter) this.filters.malzeme = Array.from(malzemeFilter.selectedOptions).map(o => o.value).filter(v => v);
@@ -1040,77 +1128,76 @@ class DataGrid {
             // Normal filtre mantığı
             const bolumMatch = !this.filters.bolum || item.bolumAdi === this.filters.bolum;
             
-            // Makine filtresi - üst makine seçildiğinde alt makineleri de dahil et
+            // Üst makine grubu filtresi
+            let ustMakineGrubuMatch = true;
+            if (this.filters.ustMakineGrubu && this.filters.ustMakineGrubu !== '' && this.filters.bolum) {
+                const ustMakineGruplari = this.machineMapping[this.filters.bolum];
+                if (ustMakineGruplari) {
+                    const makinelerInGroup = ustMakineGruplari[this.filters.ustMakineGrubu] || [];
+                    const selectedUstMakineGrubu = this.filters.ustMakineGrubu;
+                    
+                    if (makinelerInGroup.length > 0) {
+                        // 1. Ana kayıt makine kontrolü - alt makinelere tanımlı mı?
+                        const mainMachineInGroup = makinelerInGroup.some(m => 
+                            m.toLowerCase() === (item.makAd || '').toLowerCase()
+                        );
+                        
+                        // 2. Ana kayıt makine kontrolü - direkt üst makineye tanımlı mı?
+                        const mainMachineIsUpper = (item.makAd || '').toLowerCase() === selectedUstMakineGrubu.toLowerCase();
+                        
+                        // 3. Breakdown'lardaki makine kontrolü - alt makinelere tanımlı mı?
+                        let breakdownMachineInGroup = false;
+                        if (item.breakdowns && item.breakdowns.length > 0) {
+                            breakdownMachineInGroup = item.breakdowns.some(breakdown => {
+                                const breakdownMakAd = breakdown.makAd || breakdown.selectedMachine;
+                                if (!breakdownMakAd) return false;
+                                // Alt makine kontrolü
+                                const isSubMachine = makinelerInGroup.some(m => 
+                                    m.toLowerCase() === breakdownMakAd.toLowerCase()
+                                );
+                                // Üst makine kontrolü
+                                const isUpperMachine = breakdownMakAd.toLowerCase() === selectedUstMakineGrubu.toLowerCase();
+                                return isSubMachine || isUpperMachine;
+                            });
+                        }
+                        
+                        // 4. selectedMachine kontrolü - alt makinelere veya üst makineye tanımlı mı?
+                        const selectedMachineInGroup = item.selectedMachine && (
+                            makinelerInGroup.some(m => 
+                                m.toLowerCase() === item.selectedMachine.toLowerCase()
+                            ) || item.selectedMachine.toLowerCase() === selectedUstMakineGrubu.toLowerCase()
+                        );
+                        
+                        ustMakineGrubuMatch = mainMachineInGroup || mainMachineIsUpper || breakdownMachineInGroup || selectedMachineInGroup;
+                    } else {
+                        // Üst makine grubunda makine yoksa eşleşme yok
+                        ustMakineGrubuMatch = false;
+                    }
+                } else {
+                    // Mapping'de bölüm yoksa üst makine grubu filtresini görmezden gel
+                    ustMakineGrubuMatch = true;
+                }
+            }
+            
+            // Makine filtresi
             let makinaMatch = true;
             if (this.filters.makina) {
                 const selectedMachine = this.filters.makina;
-                
-                // Statik Maçahane haritası (üst → alt makineler) - PlanningApp.js'den aynı map
-                const MACA_STATIC_MAP = {
-                    'Büyük Maça Makineleri': [
-                        '17 Numaralı Maça Makinesi',
-                        '18 Numaralı Maça Makinesi'
-                    ],
-                    'El Maçası': [
-                        'El Maçası'
-                    ],
-                    'Sıcak Maça Makinesi Grubu': [
-                        '1 Numaralı Sıcak Maça Makinesi',
-                        '2 Numaralı Sıcak Maça Makinesi'
-                    ],
-                    'Küçük Maça Makineleri': [
-                        '6 Numaralı Maça Makinesi','7 Numaralı Maça Makinesi','8 Numaralı Maça Makinesi','9 Numaralı Maça Makinesi','10 Numaralı Maça Makinesi','12 Numaralı Maça Makinesi','13 Numaralı Maça Makinesi'
-                    ],
-                    'Orta Maça Makineleri': [
-                        '11 Numaralı Maça Makinesi','14 Numaralı Maça Makinesi','15 Numaralı Maça Makinesi','16 Numaralı Maça Makinesi'
-                    ],
-                    'Otomatik Maça Makinesi Grubu': [
-                        '19 Numaralı Maça Makinesi','20 Numaralı Maça Makinesi','21 Numaralı Maça Makinesi Protek1','22 Numaralı Maça Makinesi Protek2','23 Numaralı Maça Makinesi Protek3','24 Numaralı Maça Makinesi Protek4','25 Numaralı Maça Makinesi Protek5'
-                    ]
-                };
-                
-                // Seçilen makine üst makine mi kontrol et (senkron)
-                let isUpperMachine = false;
-                let subMachines = [];
-                
-                const upper = Object.keys(MACA_STATIC_MAP).find(ust => 
-                    ust.toLowerCase() === selectedMachine.toLowerCase()
-                );
-                if (upper) {
-                    isUpperMachine = true;
-                    subMachines = MACA_STATIC_MAP[upper];
-                }
-                
                 // Ana kayıt makine kontrolü
                 const mainMachineMatch = item.makAd === selectedMachine;
-                
-                // Alt makine kontrolü (eğer üst makine seçildiyse)
-                const subMachineMatch = isUpperMachine && subMachines.some(sub => 
-                    sub.toLowerCase() === (item.makAd || '').toLowerCase()
-                );
-                
                 // Breakdown'lardaki makine kontrolü
                 let breakdownMachineMatch = false;
                 if (item.breakdowns && item.breakdowns.length > 0) {
                     breakdownMachineMatch = item.breakdowns.some(breakdown => {
                         const breakdownMakAd = breakdown.makAd || breakdown.selectedMachine;
-                        if (!breakdownMakAd) return false;
-                        
-                        const exactMatch = breakdownMakAd === selectedMachine;
-                        const subMatch = isUpperMachine && subMachines.some(sub => 
-                            sub.toLowerCase() === breakdownMakAd.toLowerCase()
-                        );
-                        return exactMatch || subMatch;
+                        return breakdownMakAd && breakdownMakAd.toLowerCase() === selectedMachine.toLowerCase();
                     });
                 }
+                // selectedMachine kontrolü
+                const selectedMachineMatch = item.selectedMachine && 
+                    item.selectedMachine.toLowerCase() === selectedMachine.toLowerCase();
                 
-                // selectedMachine kontrolü (ana kayıt)
-                const selectedMachineMatch = item.selectedMachine === selectedMachine ||
-                    (isUpperMachine && item.selectedMachine && subMachines.some(sub => 
-                        sub.toLowerCase() === item.selectedMachine.toLowerCase()
-                    ));
-                
-                makinaMatch = mainMachineMatch || subMachineMatch || breakdownMachineMatch || selectedMachineMatch;
+                makinaMatch = mainMachineMatch || breakdownMachineMatch || selectedMachineMatch;
             }
             
             const firmaMatch = !this.filters.firma || item.firmaAdi === this.filters.firma;
@@ -1221,7 +1308,8 @@ class DataGrid {
                     this.safeStringSearch(item.durum, searchTerm)
                 );
             }
-            return bolumMatch && makinaMatch && firmaMatch && malzemeMatch && durumMatch && chartTarihMatch && tarihMatch && searchMatch;
+            
+            return bolumMatch && ustMakineGrubuMatch && makinaMatch && firmaMatch && malzemeMatch && durumMatch && chartTarihMatch && tarihMatch && searchMatch;
         });
         
         this.updateGrid();
@@ -1279,11 +1367,6 @@ class DataGrid {
         
         // Sütun başlıklarına sağ tıklama event'lerini tekrar ekle (yeni tablo için)
         this.setupColumnVisibility();
-        
-        console.log('Tablo güncellendi:', {
-            totalRows: this.filteredData.length,
-            plannedRows: document.querySelectorAll('tr.planned').length
-        });
         
         // Footer istatistiklerini güncelle
         this.updateFilterStats();
@@ -1469,7 +1552,7 @@ class DataGrid {
                 case 'makAd':
                     return item.makAd || '-';
                 case 'tarih':
-                    return `<span class="editable-date" onclick="dataGrid.editDate(${item.id}, '${item.tarih}')" title="Tarihi düzenlemek için tıklayın">${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : ''}</span>`;
+                    return `<span class="editable-date" onclick="dataGrid.editDate(${item.id}, '${item.tarih}')" title="Tarihi düzenlemek için tıklayın">${this.formatDateTR(item.tarih)}</span>`;
                 case 'agirlik':
                     return gosterilecekAgirlik > 0 ? gosterilecekAgirlik.toFixed(1) : '-';
                 case 'brutAgirlik':
@@ -1493,9 +1576,9 @@ class DataGrid {
                 case 'planlananMiktar':
                     return totalPlannedComputed;
                 case 'planlananTarih':
-                    return item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : '';
+                    return this.formatDateTR(item.planlananTarih);
                 case 'onerilenTeslimTarih':
-                    return item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : '';
+                    return this.formatDateTR(item.onerilenTeslimTarih);
                 case 'firmaAdi':
                     const firmaAdi = item.firmaAdi || '';
                     const firmaAdiEscaped = String(firmaAdi).replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -1593,11 +1676,11 @@ class DataGrid {
      */
     appendBreakdownRows(gridBody, item) {
         // Planlanan breakdown'ları göster (veritabanından gelen)
-        if (item.breakdowns && item.breakdowns.length > 0) {
-            item.breakdowns.forEach((breakdown, breakdownIndex) => {
+                if (item.breakdowns && item.breakdowns.length > 0) {
+                    item.breakdowns.forEach((breakdown, breakdownIndex) => {
                 const breakdownRow = this.createBreakdownRow(item, breakdown);
-                gridBody.appendChild(breakdownRow);
-            });
+                        gridBody.appendChild(breakdownRow);
+                    });
         }
         
         // Bekleyen kırılımı dinamik olarak hesapla ve göster (sadece bekleyen miktar > 0 ise)
@@ -1619,9 +1702,9 @@ class DataGrid {
                 selectedMachine: item.selectedMachine || null
             };
             const waitingBreakdownRow = this.createBreakdownRow(item, waitingBreakdown);
-            gridBody.appendChild(waitingBreakdownRow);
-        }
-    }
+                    gridBody.appendChild(waitingBreakdownRow);
+                }
+            }
     
     /**
      * Sadece belirli satırları günceller (performans optimizasyonu)
@@ -1704,12 +1787,12 @@ class DataGrid {
             const nextSibling = newRow.nextSibling;
             
             // Planlanan breakdown'ları ekle
-            if (item.breakdowns && item.breakdowns.length > 0) {
-                item.breakdowns.forEach((breakdown) => {
-                    const breakdownRow = this.createBreakdownRow(item, breakdown);
+                if (item.breakdowns && item.breakdowns.length > 0) {
+                    item.breakdowns.forEach((breakdown) => {
+                        const breakdownRow = this.createBreakdownRow(item, breakdown);
                     if (nextSibling && !nextSibling.classList.contains('breakdown-row')) {
                         nextSibling.parentNode.insertBefore(breakdownRow, nextSibling);
-                    } else {
+            } else {
                         newRow.parentNode.insertBefore(breakdownRow, newRow.nextSibling);
                     }
                 });
@@ -1895,9 +1978,9 @@ class DataGrid {
                         }
                         return '';
                 case 'planlananTarih':
-                    return breakdown.planTarihi ? new Date(breakdown.planTarihi).toLocaleDateString('tr-TR') : '';
+                    return this.formatDateTR(breakdown.planTarihi);
                 case 'onerilenTeslimTarih':
-                    return item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : '';
+                    return this.formatDateTR(item.onerilenTeslimTarih);
                 case 'firmaAdi':
                     return item.firmaAdi || '';
                 case 'aciklama':
@@ -1967,19 +2050,7 @@ class DataGrid {
                 durum: breakdown.durum
             };
             
-            // Debug: Kırılım item'ının planId'sini kontrol et
-            console.log('Kırılım item oluşturuldu (createBreakdownRow):', {
-                isemriId: breakdownItem.isemriId,
-                isemriParcaNo: breakdownItem.isemriParcaNo,
-                parcaNo: breakdownItem.parcaNo,
-                planId: breakdownItem.planId,
-                planIdType: typeof breakdownItem.planId,
-                breakdownPlanId: breakdown.planId,
-                breakdownPlanIdType: typeof breakdown.planId,
-                planlananMiktar: breakdownItem.planlananMiktar,
-                durum: breakdownItem.durum
-            });
-            
+            // Kırılım item'ı oluşturuldu
             this.showContextMenu(e, breakdownItem);
         });
         
@@ -2086,7 +2157,7 @@ class DataGrid {
                 case 'planlananTarih':
                     return isPlanned && item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : '';
                 case 'onerilenTeslimTarih':
-                    return item.onerilenTeslimTarih ? new Date(item.onerilenTeslimTarih).toLocaleDateString('tr-TR') : '';
+                    return this.formatDateTR(item.onerilenTeslimTarih);
                 case 'firmaAdi':
                     return item.firmaAdi || '';
                 case 'aciklama':
@@ -2267,7 +2338,6 @@ class DataGrid {
             const targetDate = item.planlananTarih || item.onerilenTeslimTarih;
             const calculatedWeek = this.getWeekFromDate(targetDate);
             this.selectedWeek = calculatedWeek; // selectedWeek'i set et
-            console.log('selectRow - Target date:', targetDate, 'Calculated week:', calculatedWeek);
             
             // ChartManager'a haftaya odaklanmasını söyle
             if (window.chartManager && calculatedWeek) {
@@ -2287,7 +2357,6 @@ class DataGrid {
      * @param {string} currentDate - Mevcut tarih
      */
     editDate(itemId, currentDate) {
-        console.log('Tarih düzenleme:', itemId, currentDate);
         // Bu fonksiyon daha sonra implement edilecek
     }
     /**
@@ -2381,7 +2450,6 @@ class DataGrid {
      */
     async onRowSelected(item, index) {
         // Bu metod alt sınıflarda override edilebilir
-        console.log('Satır seçildi:', item.isemriNo, 'Hesaplanan hafta:', this.selectedWeek);
         // Not: Chart güncellemesi selectRow içinde focusOnWeek ile yapılıyor, burada tekrar yapmaya gerek yok
     }
     /**
@@ -2936,12 +3004,6 @@ class DataGrid {
                 makAd: cb.getAttribute('data-mak-ad') || null
             };
             
-            console.log('Seçili iş:', {
-                planId: job.planId,
-                isemriId: job.isemriId,
-                isemriParcaNo: job.isemriParcaNo,
-                parcaNoAttr: parcaNoAttr
-            });
             
             return job;
         });
@@ -3015,7 +3077,6 @@ class DataGrid {
      */
     onDateFilterReset() {
         // Bu metod alt sınıflarda override edilebilir
-        console.log('Tarih filtresi sıfırlandı');
     }
     /**
      * Planlama modal'ını açar
@@ -3151,10 +3212,258 @@ class DataGrid {
             });
         }
         
+        // Makine dropdown'ı dinamik olarak addMachineSelectionField ile ekleniyor
+        
         // Sonuç alanını güncelle
         this.updatePlanningResult(item);
         // Ağırlık ve süre alanlarını güncelle
         this.updatePlanningWeightAndTime(item, 'normal');
+    }
+    
+    /**
+     * Makine dropdown'ını doldurur
+     */
+    async populateMachineDropdown(modal, item, selectId) {
+        const machineSelect = modal.querySelector(`#${selectId}`);
+        if (!machineSelect) return;
+        
+        // Önce loading göster
+        machineSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+        
+        try {
+            let machines = [];
+            const defaultMachine = item.selectedMachine || item.makAd || '';
+            
+            // Maça bölümü kontrolü
+            const isMaca = this.isMacaBolumu(item);
+            if (isMaca && window.planningApp) {
+                // Maça için üst makine kontrolü yap
+                const machineInfo = await window.planningApp.checkMachineType(item.makAd || '');
+                if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                    // Alt makineleri kullan
+                    machines = machineInfo.subMachines.map(sub => sub.makAd);
+                } else {
+                    // Direkt makine veya alt makine
+                    machines = [item.makAd].filter(Boolean);
+                }
+            } else {
+                // Diğer bölümler için bölüm makinelerini al
+                if (item.bolumAdi && window.dataGrid) {
+                    const bolumMachines = await this.getMachinesForBolum(item.bolumAdi);
+                    machines = bolumMachines.length > 0 ? bolumMachines : [item.makAd].filter(Boolean);
+                } else {
+                    machines = [item.makAd].filter(Boolean);
+                }
+            }
+            
+            // Dropdown'ı doldur
+            machineSelect.innerHTML = '';
+            machines.forEach(machine => {
+                const option = document.createElement('option');
+                option.value = machine;
+                option.textContent = machine;
+                if (machine === defaultMachine) {
+                    option.selected = true;
+                }
+                machineSelect.appendChild(option);
+            });
+            
+            // Eğer hiç makine yoksa
+            if (machines.length === 0) {
+                machineSelect.innerHTML = '<option value="">Makine bulunamadı</option>';
+            }
+        } catch (error) {
+            console.error('Makine dropdown doldurma hatası:', error);
+            machineSelect.innerHTML = '<option value="">Hata oluştu</option>';
+        }
+    }
+    
+    /**
+     * Bölüm için makineleri getirir
+     */
+    async getMachinesForBolum(bolumAdi) {
+        if (!window.dataGrid || !window.dataGrid.data) return [];
+        
+        const machines = new Set();
+        window.dataGrid.data.forEach(item => {
+            if (item.bolumAdi === bolumAdi && item.makAd) {
+                machines.add(item.makAd);
+            }
+        });
+        
+        return Array.from(machines).sort();
+    }
+    
+    /**
+     * Tarihi Türkçe formatında formatlar
+     * @param {string|Date} date - Tarih
+     * @returns {string} Formatlanmış tarih
+     */
+    formatDateTR(date) {
+        if (!date) return '';
+        try {
+            return new Date(date).toLocaleDateString('tr-TR');
+        } catch {
+            return '';
+        }
+    }
+    
+    /**
+     * Tarihi ISO string formatına çevirir (YYYY-MM-DD)
+     * @param {string|Date} date - Tarih
+     * @returns {string} ISO format tarih
+     */
+    formatDateISO(date) {
+        if (!date) return '';
+        try {
+            const d = date instanceof Date ? date : new Date(date);
+            return d.toISOString().split('T')[0];
+        } catch {
+            return '';
+        }
+    }
+    
+    /**
+     * Ürün bazlı planlama tablosundaki her iş emri için makine dropdown'larını doldurur
+     */
+    async populateProductBasedMachineDropdowns(ordersList, orders) {
+        const machineSelects = ordersList.querySelectorAll('.product-order-machine-input');
+        
+        for (const select of machineSelects) {
+            const isemriId = select.dataset.isemriId;
+            const bolumAdi = select.dataset.bolumAdi || '';
+            const currentMachine = select.dataset.makAd || '';
+            
+            // İş emrini bul
+            const order = orders.find(o => o.ISEMRI_ID === parseInt(isemriId));
+            if (!order) {
+                console.warn(`İş emri bulunamadı: ${isemriId}`);
+                continue;
+            }
+            
+            // BOLUM_ADI ve MAK_AD bilgilerini order'dan al (eğer dataset'te yoksa)
+            const orderBolumAdi = order.BOLUM_ADI || bolumAdi || '';
+            const orderMakAd = order.MAK_AD || currentMachine || '';
+            
+            try {
+                let machines = [];
+                
+                // Eğer makine adı yoksa, sadece "Makine bulunamadı" göster
+                if (!orderMakAd || orderMakAd.trim() === '') {
+                    select.innerHTML = '<option value="">Makine bulunamadı</option>';
+                    continue;
+                }
+                
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi: orderBolumAdi, makAd: orderMakAd });
+                if (isMaca && window.planningApp) {
+                    // Maça için üst makine kontrolü yap
+                    const machineInfo = await window.planningApp.checkMachineType(orderMakAd);
+                    if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                        // Alt makineleri kullan
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        // Direkt makine veya alt makine
+                        machines = [orderMakAd].filter(Boolean);
+                    }
+                } else {
+                    // Diğer bölümler için bölüm makinelerini al
+                    if (orderBolumAdi) {
+                        machines = await this.getMachinesForBolum(orderBolumAdi);
+                        if (machines.length === 0) {
+                            machines = [orderMakAd].filter(Boolean);
+                        }
+                    } else {
+                        machines = [orderMakAd].filter(Boolean);
+                    }
+                }
+                
+                // Dropdown'ı doldur
+                select.innerHTML = '';
+                machines.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    if (machine === currentMachine || (currentMachine === '' && machines.length === 1)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // Eğer hiç makine yoksa
+                if (machines.length === 0) {
+                    select.innerHTML = '<option value="">Makine bulunamadı</option>';
+                }
+            } catch (error) {
+                console.error('Makine dropdown doldurma hatası:', error, { isemriId, order });
+                select.innerHTML = `<option value="${orderMakAd || ''}" selected>${orderMakAd || 'Makine seçin...'}</option>`;
+            }
+        }
+    }
+    
+    /**
+     * Kuyruk planlama tablosundaki her aşama için makine dropdown'larını doldurur
+     */
+    async populateStageMachineDropdowns(modal, stages) {
+        const machineSelects = modal.querySelectorAll('.stage-machine-input');
+        
+        for (const select of machineSelects) {
+            const isemriId = select.dataset.isemriId;
+            const bolumAdi = select.dataset.bolumAdi || '';
+            const currentMachine = select.value || '';
+            
+            // Aşamayı bul
+            const stage = stages.find(s => s.isemriId === parseInt(isemriId));
+            if (!stage) continue;
+            
+            try {
+                let machines = [];
+                
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi: bolumAdi, makAd: stage.makAd || '' });
+                if (isMaca && window.planningApp) {
+                    // Maça için üst makine kontrolü yap
+                    const machineInfo = await window.planningApp.checkMachineType(stage.makAd || '');
+                    if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                        // Alt makineleri kullan
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        // Direkt makine veya alt makine
+                        machines = [stage.makAd].filter(Boolean);
+                    }
+                } else {
+                    // Diğer bölümler için bölüm makinelerini al
+                    if (bolumAdi) {
+                        machines = await this.getMachinesForBolum(bolumAdi);
+                        if (machines.length === 0) {
+                            machines = [stage.makAd].filter(Boolean);
+                        }
+                    } else {
+                        machines = [stage.makAd].filter(Boolean);
+                    }
+                }
+                
+                // Dropdown'ı doldur
+                select.innerHTML = '';
+                machines.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    if (machine === currentMachine || (currentMachine === '' && machines.length === 1)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // Eğer hiç makine yoksa
+                if (machines.length === 0) {
+                    select.innerHTML = '<option value="">Makine bulunamadı</option>';
+                }
+            } catch (error) {
+                console.error('Makine dropdown doldurma hatası:', error);
+                select.innerHTML = '<option value="">Hata oluştu</option>';
+            }
+        }
     }
     
     /**
@@ -3464,11 +3773,14 @@ class DataGrid {
         summaryModal.style.display = 'block';
         
         try {
-            // Maça için seçilmiş alt makine varsa onu anchor için gönderiyoruz
+            // Makine seçimini al (dropdown veya radio button)
             const selectedMachines = {};
+            const queuePlanInputMakine = summaryModal.querySelector('#queuePlanInputMakine');
             const selectedMachineInput = document.querySelector('input[name="selectedMachine"]:checked');
-            if (selectedMachineInput) {
-                selectedMachines[item.isemriId] = selectedMachineInput.value;
+            const selectedMachine = queuePlanInputMakine ? queuePlanInputMakine.value : 
+                                   (selectedMachineInput ? selectedMachineInput.value : null);
+            if (selectedMachine) {
+                selectedMachines[item.isemriId] = selectedMachine;
             }
             
             // Preview endpoint'ini çağır
@@ -3645,13 +3957,13 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #2d3748; font-size: 13px; vertical-align: middle; word-wrap: break-word; word-break: break-word; max-width: 200px; white-space: normal; line-height: 1.4;">${stage.malhizKodu || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${stage.bolumAdi || '-'}</td>`;
             html += `<td style="padding: 12px 15px; vertical-align: middle;">
-                <input type="text" 
-                       class="stage-machine-input" 
+                <select class="stage-machine-input" 
                        data-isemri-id="${stage.isemriId}"
                        data-plan-id="${stage.planId || ''}"
-                       value="${stage.makAd || ''}" 
-                       readonly
-                       style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; background-color: #f7fafc; cursor: not-allowed; font-size: 13px; color: #4a5568; font-family: inherit; box-sizing: border-box;" />
+                       data-bolum-adi="${stage.bolumAdi || ''}"
+                       style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; background-color: white; cursor: pointer; font-size: 13px; color: #2d3748; font-family: inherit; box-sizing: border-box;">
+                    <option value="${stage.makAd || ''}" selected>${stage.makAd || 'Makine seçin...'}</option>
+                </select>
             </td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
                 <input type="date" 
@@ -3686,6 +3998,9 @@ class DataGrid {
         
         html += '</tbody></table>';
         stagesList.innerHTML = html;
+        
+        // Her aşama için makine dropdown'ını doldur
+        this.populateStageMachineDropdowns(modal, plannedStages);
         
         // Checkbox değişikliklerini dinle - satır görünümünü güncelle
         const checkboxes = stagesList.querySelectorAll('.stage-checkbox');
@@ -3893,7 +4208,6 @@ class DataGrid {
     async submitQueueFullPlanWithData(item, planTarihi, planlananMiktar, selectedMachines, stageQuantities, stageDates, stagePlanIds, quantityChangedFlags, selectedIsemriIds = null) {
         try {
             if (this.isSubmittingQueuePlan) {
-                console.log('⏳ Kuyruk planlama zaten devam ediyor');
                 return;
             }
             
@@ -4034,51 +4348,34 @@ class DataGrid {
     async checkMachineAndOpenModal(item, modal) {
         try {
             const makineAdi = item.makAd || item.makinaAdi;
-            console.log('🔍 Makine kontrolü başlıyor:', { makineAdi, item });
             
             if (!makineAdi) {
-                console.log('❌ Makine adı bulunamadı, normal modal açılıyor');
                 this.openNormalPlanningModal(item, modal);
                 return;
             }
             
-            console.log('🔍 Makine tipini kontrol ediyor:', makineAdi);
+            // Tüm bölümler için normal modal'ı aç (makine seçimi içinde gösterilecek)
+            // Maça bölümü için üst makine kontrolü yap
+            const isMaca = this.isMacaBolumu({ bolumAdi: item.bolumAdi, makAd: makineAdi });
             
-            // Sadece maça bölümü için makine kontrolü yap
-            // Bölüm kontrolü ekle
-            const isMacaBolumu = (item.bolumAdi && item.bolumAdi.toLowerCase().includes('maça')) ||
-                                makineAdi.toLowerCase().includes('maça') || 
-                                makineAdi.toLowerCase().includes('maca') ||
-                                makineAdi.toLowerCase().includes('büyük maça') ||
-                                makineAdi.toLowerCase().includes('sıcak maça') ||
-                                makineAdi.toLowerCase().includes('maça makinesi') ||
-                                makineAdi.toLowerCase().includes('maça grubu') ||
-                                makineAdi.toLowerCase().includes('maça tezgah') ||
-                                makineAdi.toLowerCase().includes('maça pres');
-            
-            if (!isMacaBolumu) {
-                console.log('⚙️ Maça bölümü değil, normal modal açılıyor:', makineAdi);
-                this.openNormalPlanningModal(item, modal);
-                return;
-            }
-            
-            console.log('🏭 Maça bölümü tespit edildi, makine kontrolü yapılıyor:', makineAdi);
+            if (isMaca) {
             // Makine tipini kontrol et
             const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-            console.log('📋 Makine bilgileri alındı:', machineInfo);
             
             if (machineInfo.isUpperMachine) {
                 // Üst makine - alt makineleri göster
-                console.log('🏭 Üst makine tespit edildi:', machineInfo);
                 await this.openUpperMachinePlanningModal(item, modal, machineInfo);
             } else {
                 // Normal makine
-                console.log('⚙️ Normal makine:', machineInfo);
-                this.openNormalPlanningModal(item, modal);
+                    await this.openNormalPlanningModal(item, modal);
+                }
+            } else {
+                // Diğer bölümler için normal modal
+                await this.openNormalPlanningModal(item, modal);
             }
             
         } catch (error) {
-            console.error('❌ Makine kontrolü hatası:', error);
+            console.error('Makine kontrolü hatası:', error);
             // Hata durumunda normal modal'ı aç
             this.openNormalPlanningModal(item, modal);
         }
@@ -4089,22 +4386,82 @@ class DataGrid {
      * @param {Object} item - Seçilen iş emri verisi
      * @param {HTMLElement} modal - Modal elementi
      */
-    openNormalPlanningModal(item, modal) {
+    async openNormalPlanningModal(item, modal) {
         // Önce makine seçim alanını temizle
         const existingMachineField = modal.querySelector('#machineSelectionField');
         if (existingMachineField) {
             existingMachineField.remove();
-            console.log('🧹 Önceki makine seçim alanı temizlendi');
         }
         
         // Normal planlama tab'ını güncelle
         this.populateNormalPlanningTab(modal, item);
+        
+        // Tüm bölümler için makine seçimi ekle
+        await this.addMachineSelectionForAllDepartments(modal, item);
         
         // Normal tab'a geç
         this.switchPlanningTab('normal');
         
         // Modal'ı göster
         modal.style.display = 'block';
+    }
+    
+    /**
+     * Tüm bölümler için makine seçimi ekler
+     */
+    async addMachineSelectionForAllDepartments(modal, item) {
+        if (!window.planningApp) return;
+        
+        try {
+            const bolumAdi = item.bolumAdi || '';
+            const makAd = item.makAd || '';
+            
+            // Bölüm için makineleri al
+            let machines = [];
+            let machineInfo = null;
+            
+            // Maça bölümü kontrolü
+            const isMaca = this.isMacaBolumu(item);
+            if (isMaca && makAd) {
+                // Maça için üst makine kontrolü yap
+                machineInfo = await window.planningApp.checkMachineType(makAd);
+                if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                    machines = machineInfo.subMachines;
+                } else {
+                    // Alt makine veya direkt makine
+                    machines = [{ makAd: makAd }];
+                    machineInfo = { subMachines: machines };
+                }
+            } else {
+                // Diğer bölümler için bölüm makinelerini al
+                const bolumMachines = await this.getMachinesForBolum(bolumAdi);
+                if (bolumMachines.length > 0) {
+                    machines = bolumMachines.map(m => ({ makAd: m }));
+                    machineInfo = { subMachines: machines };
+                } else if (makAd) {
+                    machines = [{ makAd: makAd }];
+                    machineInfo = { subMachines: machines };
+                }
+            }
+            
+            if (machines.length > 0 && machineInfo) {
+                // Seçilen tarihi al
+                const tarihField = modal.querySelector('#planningTarih');
+                const selectedDate = tarihField ? tarihField.value : null;
+                
+                // Makine durumlarını al
+                const machineNames = machines.map(m => m.makAd);
+                const availabilityData = await window.planningApp.checkMultipleMachineAvailability(machineNames, selectedDate);
+                
+                // Default makineyi belirle
+                const defaultMachine = item.selectedMachine || item.makAd || machines[0].makAd;
+                
+                // Makine seçim alanını ekle
+                await this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine, selectedDate);
+            }
+        } catch (error) {
+            console.error('Makine seçimi ekleme hatası:', error);
+        }
     }
 
     /**
@@ -4114,12 +4471,10 @@ class DataGrid {
         try {
             // Çift submit'i engelle
             if (this.isSubmittingQueuePlan) {
-                console.log('⏳ Kuyruk planlama zaten devam ediyor, tekrar submit engellendi');
                 return;
             }
             
             this.isSubmittingQueuePlan = true;
-            console.log('🚀 Kuyruk tam planlama başlatıldı:', { isemriNo: item.isemriNo, isemriId: item.isemriId });
             
             const planningModal = document.getElementById('planningModal');
             // Önce tab'dan değerleri al, yoksa normal form'dan al
@@ -4190,7 +4545,6 @@ class DataGrid {
             
             // Filtreleri koru
             const currentFilters = this.preserveFilters();
-            console.log('Kuyruk planlama için filtreler korundu:', currentFilters);
             
             this.updateProgressBar(85, 'Tablolar güncelleniyor...');
             
@@ -4285,25 +4639,12 @@ class DataGrid {
                             }
                         };
                         
-                        console.log('🔍 Kuyruk planlama - updateRecord hazırlandı:', {
-                            isemriId: updateRecord.isemriId,
-                            planTarihi: updateRecord.planTarihi,
-                            breakdownCount: updateRecord.planningData.breakdowns.length,
-                            breakdowns: updateRecord.planningData.breakdowns.map(brk => ({
-                                planId: brk.planId,
-                                planTarihi: brk.planTarihi,
-                                planlananMiktar: brk.planlananMiktar,
-                                durum: brk.durum
-                            }))
-                        });
-                        
                         updateRecords.push(updateRecord);
                     }
                 });
                 
                 // Tüm güncellemeleri ultraFastUpdate ile yap (içinde chart güncellemesi de var)
                 if (updateRecords.length > 0) {
-                    console.log('Kuyruk planlama - güncellenecek kayıt sayısı:', updateRecords.length);
                     await window.planningApp.ultraFastUpdate(updateRecords);
                     // ultraFastUpdate içinde zaten chart güncellemesi yapılıyor, tekrar yapmaya gerek yok
                 }
@@ -4314,7 +4655,6 @@ class DataGrid {
             // Filtreleri geri yükle
             if (currentFilters) {
                 await this.restoreFilters(currentFilters);
-                console.log('Kuyruk planlama sonrası filtreler geri yüklendi');
                 
                 // Filtreler geri yüklendikten sonra grid'i güncelle
                 this.updateGrid();
@@ -4371,10 +4711,8 @@ class DataGrid {
             : siparisMiktarDefault;
         document.getElementById('planningMiktar').value = isNaN(defaultAmount) ? '' : defaultAmount;
         
-        console.log('🔍 Alt makinelerin boşluk durumu kontrol ediliyor...');
         // Alt makinelerin boşluk durumunu kontrol et
         const subMachineNames = machineInfo.subMachines.map(sub => sub.makAd);
-        console.log('📋 Alt makine adları:', subMachineNames);
         
         try {
             const availabilityData = await window.planningApp.checkMultipleMachineAvailability(subMachineNames);
@@ -4382,17 +4720,20 @@ class DataGrid {
             
             // Default makineyi belirle (veritabanından gelen makine varsa onu seç)
             const defaultMachine = this.getDefaultMachineForItem(item, machineInfo.subMachines);
-            console.log('🎯 Default makine belirlendi:', defaultMachine);
+            
+            // Seçilen tarihi al
+            const tarihField = modal.querySelector('#planningTarih');
+            const selectedDate = tarihField ? tarihField.value : null;
             
             // Makine seçim alanını ekle
-            console.log('🔧 Makine seçim alanı ekleniyor...');
-            this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine);
-            console.log('✅ Makine seçim alanı eklendi');
+            await this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine, selectedDate);
             
         } catch (error) {
-            console.error('❌ Boşluk durumu kontrolü hatası:', error);
+            console.error('Boşluk durumu kontrolü hatası:', error);
             // Hata durumunda da makine seçim alanını ekle (boş verilerle)
-            this.addMachineSelectionField(modal, machineInfo, [], null);
+            const tarihField = modal.querySelector('#planningTarih');
+            const selectedDate = tarihField ? tarihField.value : null;
+            await this.addMachineSelectionField(modal, machineInfo, [], null, selectedDate);
         }
         
         // Miktar değişikliğini dinle
@@ -4452,7 +4793,6 @@ class DataGrid {
     getDefaultMachineForItem(item, subMachines) {
         // Eğer item'da zaten bir makine seçimi varsa onu kullan
         if (item.selectedMachine) {
-            console.log('🎯 Item\'da seçili makine bulundu:', item.selectedMachine);
             return item.selectedMachine;
         }
         
@@ -4461,17 +4801,14 @@ class DataGrid {
         const isSubMachine = subMachines.some(sub => sub.makAd === currentMachine);
         
         if (isSubMachine) {
-            console.log('🎯 Mevcut makine alt makine, default olarak seçiliyor:', currentMachine);
             return currentMachine;
         }
         
         // Yoksa ilk alt makineyi default yap
         if (subMachines.length > 0) {
-            console.log('🎯 İlk alt makine default olarak seçiliyor:', subMachines[0].makAd);
             return subMachines[0].makAd;
         }
         
-        console.log('🎯 Default makine bulunamadı');
         return null;
     }
     
@@ -4482,60 +4819,22 @@ class DataGrid {
      * @param {Array} availabilityData - Boşluk durumu bilgileri
      * @param {string|null} defaultMachine - Default seçili makine
      */
-    addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine = null) {
-        console.log('🔧 Makine seçim alanı oluşturuluyor:', { modal, machineInfo, availabilityData });
+    async addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine = null, selectedDate = null) {
         
         // Mevcut makine seçim alanını kaldır
         const existingField = modal.querySelector('#machineSelectionField');
         if (existingField) {
-            console.log('🗑️ Mevcut makine seçim alanı kaldırılıyor');
             existingField.remove();
         }
         
-        // Makine seçim alanını oluştur
+        // Makine seçim alanını oluştur (dropdown olarak)
         const machineField = document.createElement('div');
         machineField.id = 'machineSelectionField';
         
-        console.log('📝 HTML içeriği oluşturuluyor...');
-        machineField.innerHTML = `
-            <div class="form-group">
-                <label for="machineSelection">Makine Seçimi:</label>
-                <div class="machine-selection-container">
-                    <p class="machine-info">${machineInfo.upperMachineName} için alt makinelerden birini seçin:</p>
-                    <div class="machine-options">
-                        ${machineInfo.subMachines.map((subMachine, index) => {
-                            const availability = availabilityData.find(av => av.machineName === subMachine.makAd);
-                            const isAvailable = availability ? availability.isAvailable : true;
-                            const firstAvailableDate = availability ? availability.firstAvailableDate : null;
-                            const plannedJobsCount = availability ? availability.plannedJobsCount : 0;
-                            const totalPlannedQuantity = availability ? availability.totalPlannedQuantity : 0;
-                            
-                            console.log(`🔍 Makine ${index}: ${subMachine.makAd}`, { availability, isAvailable, firstAvailableDate, plannedJobsCount, totalPlannedQuantity });
-                            
-                            const isDefault = defaultMachine === subMachine.makAd;
-                            return `
-                                <div class="machine-option ${isAvailable ? 'available' : 'busy'}" data-machine="${subMachine.makAd}">
-                                    <input type="radio" id="machine_${index}" name="selectedMachine" value="${subMachine.makAd}" ${isDefault ? 'checked' : ''}>
-                                    <label for="machine_${index}">
-                                        <div class="machine-name">${subMachine.makAd}</div>
-                                        <div class="machine-status">
-                                            ${isAvailable ? 
-                                                `<span class="status-available">✓ Boş (${totalPlannedQuantity} adet)</span>` : 
-                                                `<span class="status-busy">⚠ Dolu (${plannedJobsCount} iş, ${totalPlannedQuantity} adet)</span>`
-                                            }
-                                        </div>
-                                        ${firstAvailableDate ? 
-                                            `<div class="machine-date">İlk boşluk: ${new Date(firstAvailableDate).toLocaleDateString('tr-TR')}</div>` : 
-                                            '<div class="machine-date">Tamamen boş</div>'
-                                        }
-                                    </label>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+        const machines = machineInfo.subMachines || [];
+        
+        // Makine durumlarını güncelle
+        await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate);
         
         console.log('📍 Makine seçim alanı modal\'a ekleniyor...');
         // Makine seçim alanını uygun tarih alanından sonra ekle
@@ -4543,6 +4842,14 @@ class DataGrid {
         if (tarihField && tarihField.parentElement) {
             tarihField.parentElement.insertAdjacentElement('afterend', machineField);
             console.log('✅ Makine seçim alanı eklendi');
+            
+            // Tarih değişikliğini dinle (önceki listener'ları kaldır)
+            const newTarihField = tarihField.cloneNode(true);
+            tarihField.parentNode.replaceChild(newTarihField, tarihField);
+            newTarihField.addEventListener('change', async () => {
+                const newDate = newTarihField.value;
+                await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate);
+            });
         } else {
             console.error('❌ Tarih alanı bulunamadı!');
             // Fallback: modal body'nin sonuna ekle
@@ -4552,10 +4859,57 @@ class DataGrid {
                 console.log('✅ Makine seçim alanı fallback ile eklendi');
             }
         }
+    }
+    
+    /**
+     * Makine seçim dropdown'ındaki seçenekleri günceller
+     */
+    async updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate) {
+        const machineSelect = machineField.querySelector('#machineSelection');
+        const currentValue = machineSelect ? machineSelect.value : null;
         
-        // CSS stillerini ekle
-        this.addMachineSelectionStyles();
-        console.log('✅ CSS stilleri eklendi');
+        // Eğer tarih varsa, o tarihe göre makine durumlarını al
+        if (selectedDate && machines.length > 0 && window.planningApp) {
+            try {
+                const machineNames = machines.map(m => typeof m === 'string' ? m : m.makAd);
+                availabilityData = await window.planningApp.checkMultipleMachineAvailability(machineNames, selectedDate);
+            } catch (error) {
+                console.error('Makine durumu güncelleme hatası:', error);
+            }
+        }
+        
+        const options = machines.map((subMachine) => {
+            const machineName = typeof subMachine === 'string' ? subMachine : subMachine.makAd;
+            const availability = availabilityData.find(av => av.machineName === machineName);
+            const isAvailable = availability ? availability.isAvailable : true;
+            const firstAvailableDate = availability ? availability.firstAvailableDate : null;
+            const plannedJobsCount = availability ? availability.plannedJobsCount : 0;
+            const totalPlannedQuantity = availability ? availability.totalPlannedQuantity : 0;
+            
+            const isDefault = defaultMachine === machineName;
+            const isSelected = currentValue === machineName;
+            const statusText = isAvailable 
+                ? `✓ Boş (${totalPlannedQuantity} adet)` 
+                : `⚠ Dolu (${plannedJobsCount} iş, ${totalPlannedQuantity} adet)`;
+            
+            return `<option value="${machineName}" ${isDefault || isSelected ? 'selected' : ''} data-available="${isAvailable}" data-date="${firstAvailableDate || ''}">${machineName} - ${statusText}</option>`;
+        }).join('');
+        
+        if (machineSelect) {
+            machineSelect.innerHTML = options || '<option value="">Makine bulunamadı</option>';
+        } else {
+            // İlk kez oluşturuluyor
+            machineField.innerHTML = `
+                <div class="form-group">
+                    <div class="form-row">
+                        <label for="machineSelection">Makine Seçimi:</label>
+                        <select id="machineSelection" name="selectedMachine" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 100%;">
+                            ${options || '<option value="">Makine bulunamadı</option>'}
+                        </select>
+                    </div>
+                </div>
+            `;
+        }
     }
     
     /**
@@ -4812,14 +5166,14 @@ class DataGrid {
         
         // Yeni breakdown oluştur
         const newBreakdown = {
-            planId: planIdToUse,
+                        planId: planIdToUse,
             parcaNo: existingBreakdowns.length > 0 ? Math.max(...existingBreakdowns.map(b => b.parcaNo || 1)) + 1 : 1,
-            planTarihi: planTarihi,
-            planlananMiktar: planlananMiktar,
-            durum: 'Planlandı',
-            makAd: selectedMachine,
-            selectedMachine: selectedMachine,
-            aciklama: aciklama || null
+                        planTarihi: planTarihi,
+                        planlananMiktar: planlananMiktar,
+                        durum: 'Planlandı',
+                        makAd: selectedMachine,
+                        selectedMachine: selectedMachine,
+                        aciklama: aciklama || null
         };
         
         // Mevcut breakdown'ları koru ve yeni breakdown'ı ekle
@@ -5037,6 +5391,12 @@ class DataGrid {
             const planTarihi = document.getElementById('planningTarih').value;
             const planlananMiktar = parseInt(document.getElementById('planningMiktar').value);
             const aciklama = document.getElementById('planningAciklama')?.value || '';
+            
+            // Makine seçimini al (dropdown veya radio button)
+            const machineSelection = document.getElementById('machineSelection');
+            const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+            const selectedMachine = machineSelection ? machineSelection.value : 
+                                   (selectedMachineRadio ? selectedMachineRadio.value : null);
 
             // ÖNEMLİ: item referansı eski olabilir, güncel data array'inden yeniden al
             // Geri çekme sonrası planId null olur, bu yüzden güncel veriyi kullanmalıyız
@@ -5046,8 +5406,10 @@ class DataGrid {
                 const freshItem = window.planningApp.data.find(rec => rec.isemriId === item.isemriId);
                 if (freshItem) {
                     currentItem = freshItem;
-                    // Seçilen makineyi koru (eğer item'da varsa)
-                    if (item.selectedMachine) {
+                    // Seçilen makineyi koru (form'dan gelen veya item'dan)
+                    if (selectedMachine) {
+                        currentItem.selectedMachine = selectedMachine;
+                    } else if (item.selectedMachine) {
                         currentItem.selectedMachine = item.selectedMachine;
                     }
                     // breakdownPlanId'yi koru (bekleyen kırılım kontrolü için)
@@ -5055,8 +5417,10 @@ class DataGrid {
                         currentItem.breakdownPlanId = item.breakdownPlanId;
                     }
                 } else {
-                    // Fresh item bulunamazsa, item'dan selectedMachine ve breakdownPlanId'yi koru
-                    if (item.selectedMachine) {
+                    // Fresh item bulunamazsa, form'dan veya item'dan selectedMachine ve breakdownPlanId'yi koru
+                    if (selectedMachine) {
+                        currentItem.selectedMachine = selectedMachine;
+                    } else if (item.selectedMachine) {
                         currentItem.selectedMachine = item.selectedMachine;
                     }
                     if (item.breakdownPlanId !== undefined) {
@@ -5064,8 +5428,10 @@ class DataGrid {
                     }
                 }
             } else {
-                // PlanningApp yoksa, item'dan selectedMachine ve breakdownPlanId'yi koru
-                if (item.selectedMachine) {
+                // PlanningApp yoksa, form'dan veya item'dan selectedMachine ve breakdownPlanId'yi koru
+                if (selectedMachine) {
+                    currentItem.selectedMachine = selectedMachine;
+                } else if (item.selectedMachine) {
                     currentItem.selectedMachine = item.selectedMachine;
                 }
                 if (item.breakdownPlanId !== undefined) {
@@ -5103,7 +5469,7 @@ class DataGrid {
                         planId: currentItem.planId,
                         planTarihi: planTarihi,
                         planlananMiktar: planlananMiktar,
-                        selectedMachine: currentItem.selectedMachine, // Seçilen makineyi ekle
+                        selectedMachine: currentItem.selectedMachine || selectedMachine || currentItem.makAd || null, // Seçilen makineyi ekle
                         aciklama: aciklama
                     })
                 });
@@ -5116,7 +5482,7 @@ class DataGrid {
                     isemriId: currentItem.isemriId,
                     planTarihi: planTarihi,
                     planlananMiktar: planlananMiktar,
-                    selectedMachine: currentItem.selectedMachine, // Seçilen makineyi ekle
+                    selectedMachine: currentItem.selectedMachine || selectedMachine || currentItem.makAd || null, // Seçilen makineyi ekle
                     aciklama: aciklama
                 };
                 console.log('Yeni plan INSERT gönderiliyor:', planningData);
@@ -5607,6 +5973,8 @@ class DataGrid {
                     ONERILEN_TESLIM_TARIH: cacheItem.onerilenTeslimTarih,
                     ISEMRI_AC_TAR: cacheItem.tarih,
                     FIRMA_ADI: cacheItem.firmaAdi,
+                    BOLUM_ADI: cacheItem.bolumAdi || '',
+                    MAK_AD: cacheItem.makAd || '',
                     DURUM: durum,
                     PLANLANAN_MIKTAR: planlananMiktar, // Planlanan miktarı da ekle
                     PLANLANAN_TARIH: cacheItem.planlananTarih || null // Planlanmış iş emirleri için plan tarihi
@@ -5667,6 +6035,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Plan Tarihi</th>';
+        html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Makine</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Durum</th>';
         html += '</tr></thead><tbody>';
         
@@ -5778,12 +6147,25 @@ class DataGrid {
                        onfocus="if(!this.readOnly) { this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)'; }" 
                        onblur="if(!this.readOnly) { this.style.borderColor='#cbd5e0'; this.style.boxShadow='none'; }" />
             </td>`;
+            html += `<td style="padding: 12px 15px; vertical-align: middle;">
+                <select class="product-order-machine-input" 
+                       data-isemri-id="${order.ISEMRI_ID}"
+                       data-bolum-adi="${order.BOLUM_ADI || ''}"
+                       data-mak-ad="${order.MAK_AD || ''}"
+                       ${isPlanned ? 'disabled' : ''}
+                       style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; background-color: ${isPlanned ? '#f7fafc' : 'white'}; cursor: ${isPlanned ? 'not-allowed' : 'pointer'}; font-size: 13px; color: #2d3748; font-family: inherit; box-sizing: border-box;">
+                    <option value="${order.MAK_AD || ''}" selected>${order.MAK_AD || 'Makine seçin...'}</option>
+                </select>
+            </td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">${statusBadge}</td>`;
             html += '</tr>';
         });
         
         html += '</tbody></table>';
         ordersList.innerHTML = html;
+        
+        // Her iş emri için makine dropdown'ını doldur
+        this.populateProductBasedMachineDropdowns(ordersList, sortedOrders);
         
         // Checkbox değişikliklerini dinle
         const checkboxes = ordersList.querySelectorAll('.product-order-checkbox');
@@ -5906,9 +6288,11 @@ class DataGrid {
             
             const quantityInput = row.querySelector('.product-order-quantity-input');
             const dateInput = row.querySelector('.product-order-date-input');
+            const machineInput = row.querySelector('.product-order-machine-input');
             
             const planlananMiktar = parseInt(quantityInput.value) || 0;
             const planTarihi = dateInput.value;
+            const selectedMachine = machineInput ? machineInput.value : null;
             
             if (planlananMiktar > 0 && planTarihi) {
                 // Açıklama alanını al
@@ -5920,7 +6304,7 @@ class DataGrid {
                     isemriNo: isemriNo,
                     planTarihi: planTarihi,
                     planlananMiktar: planlananMiktar,
-                    selectedMachine: null, // Maça kontrolü backend'de yapılacak
+                    selectedMachine: selectedMachine || null,
                     aciklama: aciklama || null
                 });
             }
@@ -8570,11 +8954,11 @@ class DataGrid {
             }
         }
 
-        // Maça bölümü için makine seçimi kontrolü
+        // Maça bölümü için özel kontrol
         if (this.isMacaBolumu(mainItem)) {
             this.checkMachineAndOpenUpdateModal(mainItem, modal);
         } else {
-            // Normal güncelleme modal'ı
+            // Normal güncelleme modal'ı - makine dropdown'ı dinamik olarak ekleniyor
             modal.style.display = 'block';
             const form = modal.querySelector('#planningForm') || document.getElementById('planningForm');
             if (form) {
@@ -8592,45 +8976,35 @@ class DataGrid {
      * @param {HTMLElement} modal - Modal elementi
      */
     async checkMachineAndOpenUpdateModal(item, modal) {
+        // Makine dropdown'ı dinamik olarak addMachineSelectionField ile ekleniyor
+        
         try {
             const makineAdi = item.makAd || item.makinaAdi;
-            console.log('🔍 Güncelleme için makine kontrolü başlıyor:', { makineAdi, item });
             
             if (!makineAdi) {
-                console.log('❌ Makine adı bulunamadı, normal güncelleme modal\'ı açılıyor');
                 this.openNormalUpdateModal(item, modal);
                 return;
             }
             
-            console.log('🔍 Makine tipini kontrol ediyor:', makineAdi);
-            
             // Sadece maça bölümü için makine kontrolü yap
-            const isMacaBolumu = (item.bolumAdi && item.bolumAdi.toLowerCase().includes('maça')) ||
-                                makineAdi.toLowerCase().includes('maça') || 
-                                makineAdi.toLowerCase().includes('maca');
-            
-            if (!isMacaBolumu) {
-                console.log('⚙️ Maça bölümü değil, normal güncelleme modal açılıyor:', makineAdi);
+            if (!this.isMacaBolumu({ bolumAdi: item.bolumAdi, makAd: makineAdi })) {
                 this.openNormalUpdateModal(item, modal);
                 return;
             }
             
             // Makine tipini kontrol et
             const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-            console.log('📋 Makine bilgileri alındı:', machineInfo);
             
             if (machineInfo.isUpperMachine) {
                 // Üst makine - alt makineleri göster
-                console.log('🏭 Üst makine tespit edildi:', machineInfo);
                 await this.openUpperMachineUpdateModal(item, modal, machineInfo);
             } else {
                 // Normal makine
-                console.log('⚙️ Normal makine:', machineInfo);
                 this.openNormalUpdateModal(item, modal);
             }
             
         } catch (error) {
-            console.error('❌ Makine kontrolü hatası:', error);
+            console.error('Makine kontrolü hatası:', error);
             // Hata durumunda normal modal'ı aç
             this.openNormalUpdateModal(item, modal);
         }
@@ -8641,13 +9015,14 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      * @param {HTMLElement} modal - Modal elementi
      */
-    openNormalUpdateModal(item, modal) {
+    async openNormalUpdateModal(item, modal) {
         // Önce makine seçim alanını temizle
         const existingMachineField = modal.querySelector('#machineSelectionField');
         if (existingMachineField) {
             existingMachineField.remove();
-            console.log('🧹 Önceki makine seçim alanı temizlendi (update modal)');
         }
+        
+        // Makine dropdown'ı dinamik olarak addMachineSelectionField ile ekleniyor
         
         modal.style.display = 'block';
         const form = document.getElementById('planningForm');
@@ -8664,17 +9039,11 @@ class DataGrid {
      * @param {Object} machineInfo - Makine bilgileri
      */
     async openUpperMachineUpdateModal(item, modal, machineInfo) {
-        // Alt makinelerin availability'sini kontrol et
-        const availabilityData = await window.planningApp.checkMultipleMachineAvailability(
-            machineInfo.subMachines.map(sub => sub.makAd)
-        );
-        
-        // Default makineyi belirle (mevcut makine)
+        // Alt makineleri dropdown olarak ekle (card yerine)
+        const machines = machineInfo.subMachines.map(sub => sub.makAd);
         const defaultMachine = item.selectedMachine || item.makAd;
-        console.log('🎯 Güncelleme için default makine belirlendi:', defaultMachine);
         
-        // Makine seçim alanını ekle
-        this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine);
+        // Makine dropdown'ı dinamik olarak addMachineSelectionField ile ekleniyor
         
         // Modal'ı göster
         modal.style.display = 'block';
@@ -8683,7 +9052,7 @@ class DataGrid {
         const form = document.getElementById('planningForm');
         form.onsubmit = (e) => {
             e.preventDefault();
-            this.submitUpdateWithMachineSelection(item);
+            this.submitUpdate(item);
         };
     }
     
@@ -8692,7 +9061,13 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     async submitUpdateWithMachineSelection(item) {
-        const selectedMachine = document.querySelector('input[name="selectedMachine"]:checked')?.value;
+        // Radio button veya select'ten makine seçimini al
+        const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+        const selectedMachineSelect = document.querySelector('select[name="selectedMachine"]');
+        const machineSelection = document.getElementById('machineSelection');
+        const selectedMachine = selectedMachineRadio ? selectedMachineRadio.value : 
+                               (selectedMachineSelect ? selectedMachineSelect.value : 
+                               (machineSelection ? machineSelection.value : null));
         if (selectedMachine) {
             item.selectedMachine = selectedMachine;
             console.log('🎯 Güncelleme için seçilen makine:', selectedMachine);
@@ -8707,6 +9082,12 @@ class DataGrid {
     async submitUpdate(item) {
         const planTarihi = document.getElementById('planningTarih').value;
         const planlananMiktarInput = document.getElementById('planningMiktar').value;
+        
+        // Makine seçimini al (dropdown veya radio button)
+        const machineSelection = document.getElementById('machineSelection');
+        const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+        const selectedMachine = machineSelection ? machineSelection.value : 
+                               (selectedMachineRadio ? selectedMachineRadio.value : null);
         
         // Değer doğrulama
         if (!planTarihi || !planlananMiktarInput) {
@@ -9262,7 +9643,7 @@ class DataGrid {
                     planId: numericPlanId,
                     planTarihi: planTarihi,
                     planlananMiktar: planlananMiktar,
-                    selectedMachine: item.selectedMachine
+                    selectedMachine: item.selectedMachine || selectedMachine || item.makAd || null
                 })
             });
             const result = await response.json();
@@ -9688,7 +10069,6 @@ class DataGrid {
                     }
                 }
                 
-                // Debug: breakdowns içindeki tüm planId'leri göster
                 if (!planId || planId === 'new') {
                     console.warn('breakdowns içindeki planId\'ler:', currentItem.breakdowns.map(brk => ({
                         parcaNo: brk.parcaNo,
@@ -10376,13 +10756,16 @@ class DataGrid {
             modalTitle.textContent = 'İş Emri Parçala';
         }
 
-        // Maça bölümü için makine seçimi kontrolü
+        // Tüm bölümler için makine dropdown'ı ekle
+        this.populateMachineDropdown(modal, item, 'splitMakine').then(() => {
+            // Maça bölümü için özel kontrol (artık sadece alt makineleri göstermek için)
         if (this.isMacaBolumu(item)) {
             this.checkMachineAndOpenSplitModal(item, modal);
         } else {
             // Normal parçalama modal'ı
             this.openNormalSplitModal(item, modal);
         }
+        });
     }
     
     /**
@@ -10427,6 +10810,12 @@ class DataGrid {
                     <input type="date" id="yeniTarih" required>
                 </div>
                 <div class="form-group">
+                    <label>Makine:</label>
+                    <select id="splitMakine" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 100%;">
+                        <option value="">Yükleniyor...</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Sonuç:</label>
                     <div id="splitResult" class="split-result">
                         <div>• <span id="kalanMiktar">${item.planlananMiktar - 1}</span> adet → <span id="mevcutTarih">${item.planlananTarih || 'Tarih Yok'}</span> (mevcut tarih)</div>
@@ -10435,6 +10824,9 @@ class DataGrid {
                 </div>
             `;
         }
+
+        // Makine dropdown'ını doldur
+        this.populateMachineDropdown(modal, item, 'splitMakine');
 
         // Modal butonunu güncelle (mutlaka modal-content içinde olsun)
         const modalContentContainer = modal.querySelector('.modal-content') || modal;
@@ -10489,45 +10881,36 @@ class DataGrid {
      * @param {HTMLElement} modal - Modal elementi
      */
     async checkMachineAndOpenSplitModal(item, modal) {
+        // Makine dropdown'ını doldur (maça için alt makineler)
+        await this.populateMachineDropdown(modal, item, 'splitMakine');
+        
         try {
             const makineAdi = item.makAd || item.makinaAdi;
-            console.log('🔍 Parçalama için makine kontrolü başlıyor:', { makineAdi, item });
             
             if (!makineAdi) {
-                console.log('❌ Makine adı bulunamadı, normal parçalama modal\'ı açılıyor');
                 this.openNormalSplitModal(item, modal);
                 return;
             }
             
-            console.log('🔍 Makine tipini kontrol ediyor:', makineAdi);
-            
             // Sadece maça bölümü için makine kontrolü yap
-            const isMacaBolumu = (item.bolumAdi && item.bolumAdi.toLowerCase().includes('maça')) ||
-                                makineAdi.toLowerCase().includes('maça') || 
-                                makineAdi.toLowerCase().includes('maca');
-            
-            if (!isMacaBolumu) {
-                console.log('⚙️ Maça bölümü değil, normal parçalama modal açılıyor:', makineAdi);
+            if (!this.isMacaBolumu({ bolumAdi: item.bolumAdi, makAd: makineAdi })) {
                 this.openNormalSplitModal(item, modal);
                 return;
             }
             
             // Makine tipini kontrol et
             const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-            console.log('📋 Makine bilgileri alındı:', machineInfo);
             
             if (machineInfo.isUpperMachine) {
                 // Üst makine - alt makineleri göster
-                console.log('🏭 Üst makine tespit edildi:', machineInfo);
                 await this.openUpperMachineSplitModal(item, modal, machineInfo);
             } else {
                 // Normal makine
-                console.log('⚙️ Normal makine:', machineInfo);
                 this.openNormalSplitModal(item, modal);
             }
             
         } catch (error) {
-            console.error('❌ Makine kontrolü hatası:', error);
+            console.error('Makine kontrolü hatası:', error);
             // Hata durumunda normal modal'ı aç
             this.openNormalSplitModal(item, modal);
         }
@@ -10570,6 +10953,12 @@ class DataGrid {
                     <input type="date" id="yeniTarih" required>
                 </div>
                 <div class="form-group">
+                    <label>Makine:</label>
+                    <select id="splitMakine" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 100%;">
+                        <option value="">Yükleniyor...</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Sonuç:</label>
                     <div id="splitResult" class="split-result">
                         <div>• <span id="kalanMiktar">${item.planlananMiktar - 1}</span> adet → <span id="mevcutTarih">${item.planlananTarih || 'Tarih Yok'}</span> (mevcut tarih)</div>
@@ -10579,8 +10968,24 @@ class DataGrid {
             `;
         }
         
-        // Makine seçim alanını ekle
-        this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine);
+        // Alt makineleri dropdown olarak ekle (card yerine)
+        const machines = machineInfo.subMachines.map(sub => sub.makAd);
+        // defaultMachine zaten yukarıda tanımlanmış
+        
+        // splitMakine dropdown'ını doldur
+        const splitMakine = modal.querySelector('#splitMakine');
+        if (splitMakine) {
+            splitMakine.innerHTML = '';
+            machines.forEach(machine => {
+                const option = document.createElement('option');
+                option.value = machine;
+                option.textContent = machine;
+                if (machine === defaultMachine) {
+                    option.selected = true;
+                }
+                splitMakine.appendChild(option);
+            });
+        }
         
         // Modal butonunu güncelle
         const modalContentContainer = modal.querySelector('.modal-content') || modal;
@@ -10592,7 +10997,7 @@ class DataGrid {
         }
         footer.innerHTML = `
             <button type="button" class="btn-cancel-red" onclick="dataGrid.closeModal()">İptal</button>
-            <button type="button" class="btn-primary" onclick="dataGrid.submitSplitWithMachineSelection(dataGrid.selectedItem)">Parçala</button>
+            <button type="button" class="btn-primary" onclick="dataGrid.submitSplit(dataGrid.selectedItem)">Parçala</button>
         `;
 
         // Modal'ı göster
@@ -10607,7 +11012,11 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     async submitSplitWithMachineSelection(item) {
-        const selectedMachine = document.querySelector('input[name="selectedMachine"]:checked')?.value;
+        // Radio button veya select'ten makine seçimini al
+        const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+        const splitMakine = document.getElementById('splitMakine');
+        const selectedMachine = selectedMachineRadio ? selectedMachineRadio.value : 
+                               (splitMakine ? splitMakine.value : null);
         if (selectedMachine) {
             item.selectedMachine = selectedMachine;
             console.log('🎯 Parçalama için seçilen makine:', selectedMachine);
@@ -10748,12 +11157,21 @@ class DataGrid {
             return;
         }
         
+        // Makine seçimini al
+        const splitMakine = document.getElementById('splitMakine');
+        const machineSelection = document.getElementById('machineSelection');
+        const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+        const selectedMachine = splitMakine ? splitMakine.value : 
+                               (machineSelection ? machineSelection.value : 
+                               (selectedMachineRadio ? selectedMachineRadio.value : null));
+        
         try {
             console.log('İş emri parçalanıyor:', {
                 planId: numericPlanId,
                 planIdOriginal: planId,
                 splitMiktar,
-                yeniTarih
+                yeniTarih,
+                selectedMachine
             });
             
             const response = await fetch('/api/planning/split', {
@@ -10765,7 +11183,7 @@ class DataGrid {
                     planId: numericPlanId,
                     splitMiktar: splitMiktar,
                     yeniTarih: yeniTarih,
-                    selectedMachine: item.selectedMachine
+                    selectedMachine: selectedMachine || item.selectedMachine || item.makAd || null
                 })
             });
             
@@ -12148,6 +12566,7 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Malzeme Kodu</th>';
         html += '<th style="padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Firma</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Sipariş Miktar (Kalıp)</th>';
+        html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Makine</th>';
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Planlanan Miktar</th>';
         html += '</tr></thead><tbody>';
         
@@ -12165,6 +12584,15 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.firmaAdi || '-'}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${planMiktar}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
+                <select class="bulk-planning-machine-input" 
+                        data-isemri-id="${item.isemriId}"
+                        data-bolum-adi="${item.bolumAdi || ''}"
+                        data-mak-ad="${item.makAd || ''}"
+                        style="width: 150px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; transition: border-color 0.2s ease; box-sizing: border-box;">
+                    <option value="">Yükleniyor...</option>
+                </select>
+            </td>`;
+            html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
                 <input type="number" 
                        class="bulk-planning-quantity-input" 
                        data-isemri-id="${item.isemriId}"
@@ -12180,6 +12608,65 @@ class DataGrid {
         
         html += '</tbody></table>';
         ordersList.innerHTML = html;
+        
+        // Makine dropdown'larını doldur
+        this.populateBulkPlanningMachineDropdowns(items);
+    }
+    
+    /**
+     * Toplu planlama için makine dropdown'larını doldurur
+     * @param {Array} items - İş emri listesi
+     */
+    async populateBulkPlanningMachineDropdowns(items) {
+        const machineInputs = document.querySelectorAll('.bulk-planning-machine-input');
+        
+        for (const select of machineInputs) {
+            const isemriId = parseInt(select.dataset.isemriId);
+            const bolumAdi = select.dataset.bolumAdi || '';
+            const makAd = select.dataset.makAd || '';
+            
+            // İlgili item'ı bul
+            const item = items.find(i => i.isemriId === isemriId);
+            if (!item) continue;
+            
+            try {
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi, makAd });
+                
+                let machines = [];
+                
+                if (isMaca && makAd) {
+                    // Maça bölümü için alt makineleri al
+                    const machineInfo = await window.planningApp.checkMachineType(makAd);
+                    if (machineInfo && machineInfo.subMachines && machineInfo.subMachines.length > 0) {
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        machines = [makAd]; // Alt makine yoksa kendisini göster
+                    }
+                } else if (bolumAdi) {
+                    // Diğer bölümler için bölüm makinelerini al
+                    machines = await this.getMachinesForBolum(bolumAdi);
+                } else {
+                    machines = [makAd].filter(Boolean); // Sadece mevcut makineyi göster
+                }
+                
+                // Dropdown'ı doldur
+                select.innerHTML = '';
+                if (machines.length === 0) {
+                    select.innerHTML = '<option value="">Makine bulunamadı</option>';
+                } else {
+                    // Default makineyi seç
+                    const defaultMachine = item.selectedMachine || item.makAd || machines[0];
+                    machines.forEach(machine => {
+                        const isSelected = machine === defaultMachine;
+                        select.innerHTML += `<option value="${machine}" ${isSelected ? 'selected' : ''}>${machine}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error(`Makine dropdown doldurma hatası (isemriId: ${isemriId}):`, error);
+                select.innerHTML = '<option value="">Hata</option>';
+            }
+        }
     }
     
     /**
@@ -12212,12 +12699,16 @@ class DataGrid {
                 // İş emri bilgilerini bul
                 const item = this.filteredData.find(i => i.isemriId === isemriId);
                 if (item) {
+                    // Makine seçimini al
+                    const machineSelect = modal.querySelector(`.bulk-planning-machine-input[data-isemri-id="${isemriId}"]`);
+                    const selectedMachine = machineSelect ? machineSelect.value : (item.selectedMachine || item.makAd || null);
+                    
                     ordersToPlan.push({
                         isemriId: isemriId,
                         isemriNo: item.isemriNo,
                         planTarihi: planTarihi,
                         planlananMiktar: planlananMiktar,
-                        selectedMachine: null, // Maça kontrolü backend'de yapılacak
+                        selectedMachine: selectedMachine,
                         aciklama: aciklama || null
                     });
                 }

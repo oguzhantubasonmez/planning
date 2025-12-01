@@ -155,31 +155,29 @@ app.post('/api/planning', async (req, res) => {
         // Makine seçimi sadece maça aşaması için gerekli
         let targetMachine = originalMakAd;
         let targetMakId = originalMakId;
-        if (isMacaStage) {
-            // Maça aşaması: Seçilen makine varsa onu kullan, yoksa orijinal makineyi kullan
-            targetMachine = selectedMachine || originalMakAd;
-            if (selectedMachine) {
-                console.log('✅ Maça aşaması için seçilen makine:', selectedMachine);
-                // Seçilen makine için MAK_ID'yi al
-                if (selectedMachine !== originalMakAd) {
-                    const makIdQuery = `
-                        WITH ISEMRI_FILTERED AS (
-                            SELECT * 
-                            FROM ERPURT.T_URT_ISEMRI 
-                            WHERE FABRIKA_KOD = 120 AND DURUMU = 1
-                        )
-                        SELECT DISTINCT MAK_ID
-                        FROM ERPREADONLY.V_ISEMRI_DETAY 
-                        WHERE ISEMRI_ID = :isemriId AND MAK_AD = :selectedMachine
-                    `;
-                    const makIdResult = await connection.execute(makIdQuery, { isemriId, selectedMachine });
-                    if (makIdResult.rows.length > 0 && makIdResult.rows[0][0]) {
-                        targetMakId = makIdResult.rows[0][0];
-                    }
+        // Tüm aşamalar için makine seçimine izin ver
+        if (selectedMachine) {
+            targetMachine = selectedMachine;
+            console.log('✅ Seçilen makine:', selectedMachine);
+            // Seçilen makine için MAK_ID'yi al
+            if (selectedMachine !== originalMakAd) {
+                const makIdQuery = `
+                    WITH ISEMRI_FILTERED AS (
+                        SELECT * 
+                        FROM ERPURT.T_URT_ISEMRI 
+                        WHERE FABRIKA_KOD = 120 AND DURUMU = 1
+                    )
+                    SELECT DISTINCT MAK_ID
+                    FROM ERPREADONLY.V_ISEMRI_DETAY 
+                    WHERE ISEMRI_ID = :isemriId AND MAK_AD = :selectedMachine
+                `;
+                const makIdResult = await connection.execute(makIdQuery, { isemriId, selectedMachine });
+                if (makIdResult.rows.length > 0 && makIdResult.rows[0][0]) {
+                    targetMakId = makIdResult.rows[0][0];
                 }
             }
         } else {
-            // Maça dışı aşamalar: Her zaman orijinal makineyi kullan
+            // Seçilen makine yoksa orijinal makineyi kullan
             targetMachine = originalMakAd;
             targetMakId = originalMakId;
         }
@@ -2275,6 +2273,7 @@ app.get('/api/planning-data', async (req, res) => {
                 VD.MALHIZ_KODU,
                 VD.MALHIZ_ADI,
                 VD.AGIRLIK,
+                VD.BRUT_AGIRLIK,
                 VD.TOPLAM_SURE,
                 VD.TOPLAM_HAZIRLIK_SURE,
                 VD.PLAN_MIKTAR,
@@ -2313,6 +2312,13 @@ app.get('/api/planning-data', async (req, res) => {
                     
                     // Planlama verilerinde her zaman planlanan miktar × birim ağırlık
                     return Math.round((planlananMiktar * birimAgirlik) * 10) / 10; // Virgülden sonra 1 basamak
+                })(),
+                brutAgirlik: (() => {
+                    const birimBrutAgirlik = item.BRUT_AGIRLIK || 0;
+                    const planlananMiktar = item.PLANLANAN_MIKTAR || 0;
+                    
+                    // Planlama verilerinde her zaman planlanan miktar × birim brüt ağırlık
+                    return Math.round((planlananMiktar * birimBrutAgirlik) * 10) / 10; // Virgülden sonra 1 basamak
                 })(),
                 toplamSure: (() => {
                     const toplamHazirlikSure = item.TOPLAM_HAZIRLIK_SURE || 0;
@@ -2447,7 +2453,10 @@ app.get('/api/machine/availability', async (req, res) => {
         
         connection = await pool.getConnection();
         
-        // Makine boşluk durumu sorgusu
+        // Tarih filtresi varsa o tarihteki planlamaları kontrol et (TRUNC ile sadece tarih kısmını karşılaştır)
+        const dateFilter = startDate ? `AND TRUNC(PV.PLAN_TARIHI) = TO_DATE(:startDate, 'YYYY-MM-DD')` : '';
+        
+        // Makine boşluk durumu sorgusu - seçilen tarihe göre
         const availabilityQuery = `
             WITH ISEMRI_FILTERED AS (
                 SELECT * 
@@ -2464,10 +2473,11 @@ app.get('/api/machine/availability', async (req, res) => {
             INNER JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID
             WHERE PV.MAK_AD = :makineAdi
             AND PV.PLANLAMA_DURUMU = 'PLANLANDI'
+            ${dateFilter}
             GROUP BY PV.ISEMRI_ID
         `;
         
-        // Ayrıca o makineye ait toplam planlanmış miktarı da hesapla
+        // Ayrıca o makineye ait seçilen tarihteki toplam planlanmış miktarı da hesapla
         const totalQuantityQuery = `
             WITH ISEMRI_FILTERED AS (
                 SELECT * 
@@ -2480,15 +2490,21 @@ app.get('/api/machine/availability', async (req, res) => {
             INNER JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID
             WHERE PV.MAK_AD = :makineAdi
             AND PV.PLANLAMA_DURUMU = 'PLANLANDI'
+            ${dateFilter}
         `;
         
-        const result = await connection.execute(availabilityQuery, { makineAdi });
-        const totalResult = await connection.execute(totalQuantityQuery, { makineAdi });
+        const queryParams = { makineAdi };
+        if (startDate) {
+            queryParams.startDate = startDate;
+        }
+        
+        const result = await connection.execute(availabilityQuery, queryParams);
+        const totalResult = await connection.execute(totalQuantityQuery, queryParams);
         
         const totalPlannedQuantity = totalResult.rows.length > 0 ? (totalResult.rows[0][0] || 0) : 0;
         
         if (result.rows.length > 0) {
-            // Makineye ait planlanmış işler var
+            // Makineye ait planlanmış işler var (seçilen tarihte)
             const firstAvailableDate = result.rows[0][1]; // MIN(PV.PLAN_TARIHI)
             const plannedJobsCount = result.rows.length; // COUNT(PV.PLAN_ID)
             
@@ -2501,13 +2517,13 @@ app.get('/api/machine/availability', async (req, res) => {
                 isAvailable: false // Planlanmış işler var
             });
         } else {
-            // Makine tamamen boş - SYSDATE döndür
+            // Makine seçilen tarihte boş
             res.json({
                 success: true,
                 machineName: makineAdi,
-                firstAvailableDate: new Date().toISOString().split('T')[0], // Bugünün tarihi
+                firstAvailableDate: startDate || new Date().toISOString().split('T')[0],
                 plannedJobsCount: 0,
-                totalPlannedQuantity: totalPlannedQuantity,
+                totalPlannedQuantity: 0,
                 isAvailable: true
             });
         }
@@ -4263,9 +4279,10 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                 
                 let targetMachine = originalMakAd;
                 let targetMakId = originalMakId;
-                if (isMacaStage) {
-                    targetMachine = selectedMachine || originalMakAd;
-                    if (selectedMachine && selectedMachine !== originalMakAd) {
+                // Tüm aşamalar için makine seçimine izin ver
+                if (selectedMachine) {
+                    targetMachine = selectedMachine;
+                    if (selectedMachine !== originalMakAd) {
                         // Seçilen makine için MAK_ID'yi al
                         const makIdQuery = `
                             WITH ISEMRI_FILTERED AS (
@@ -4282,9 +4299,6 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                             targetMakId = makIdResult.rows[0][0];
                         }
                     }
-                } else {
-                    targetMachine = originalMakAd;
-                    targetMakId = originalMakId;
                 }
                 
                 // İş emrinin sipariş miktarını kontrol et

@@ -5289,17 +5289,18 @@
                                         </div>
                 
                 <div class="filter-row">
+                    <label for="ustMakineFilter">Üst Makine Grubu Filtresi:</label>
+                    <select id="ustMakineFilter">
+                        <option value="">Tümü</option>
+                    </select>
+                </div>
+                
+                <div class="filter-row">
                     <label for="makinaFilter">Makina Filtresi:</label>
                     <select id="makinaFilter">
                         <option value="">Tümü</option>
                     </select>
-                                    </div>
-                <div class="filter-row">
-                    <label for="firmaFilter">Firma Filtresi:</label>
-                    <select id="firmaFilter">
-                        <option value="">Tümü</option>
-                    </select>
-                            </div>
+                </div>
                 <div class="filter-row">
                     <label for="malzemeFilter">Malzeme Filtresi:</label>
                     <select id="malzemeFilter">
@@ -5320,6 +5321,13 @@
                             <div id="durumList" class="multi-select-list"></div>
                         </div>
                     </div>
+                </div>
+                
+                <div class="filter-row">
+                    <label for="firmaFilter">Firma Filtresi:</label>
+                    <select id="firmaFilter">
+                        <option value="">Tümü</option>
+                    </select>
                 </div>
                 
                 <div class="filter-row">
@@ -5374,7 +5382,8 @@
                 <div class="chart-filter">
                     <label>Değer Türü:</label>
                     <select id="chartValueType">
-                        <option value="agirlik">Ağırlık (KG)</option>
+                        <option value="agirlik">Net Ağırlık (KG)</option>
+                        <option value="brutAgirlik">Brüt Ağırlık (KG)</option>
                         <option value="toplamSure">Toplam Süre (DK)</option>
                         <option value="planlananMiktar" selected>Plan Miktar</option>
                     </select>
@@ -5981,7 +5990,7 @@
 
     <!-- Kuyruk Planlama Özet Modal -->
     <div id="queuePlanSummaryModal" class="modal">
-        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1400px; max-height: 90vh;">
             <div class="modal-header">
                 <h3>Kuyruk Planlama Özeti</h3>
                 <span class="close" onclick="closeQueuePlanSummaryModal()">&times;</span>
@@ -6038,7 +6047,7 @@
 
     <!-- Ürün Bazlı Planlama Modal -->
     <div id="productBasedPlanningModal" class="modal">
-        <div class="modal-content" style="max-width: 1000px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1400px; max-height: 90vh;">
             <div class="modal-header">
                 <h3>Ürün Bazlı Planlama</h3>
                 <span class="close" onclick="closeProductBasedPlanningModal()">&times;</span>
@@ -6139,7 +6148,7 @@
 
     <!-- Toplu Planlama Modal -->
     <div id="bulkPlanningModal" class="modal">
-        <div class="modal-content" style="max-width: 1000px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1400px; max-height: 90vh;">
             <div class="modal-header">
                 <h3>Toplu Planlama</h3>
                 <span class="close" onclick="closeBulkPlanningModal()">&times;</span>

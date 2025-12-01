@@ -6,7 +6,7 @@ class ChartManager {
         this.selectedWeek = null;
         this.selectedDayIndex = -1;
         this.selectedSegmentIndex = -1;
-        this.valueType = 'planlananMiktar'; // planlananMiktar, agirlik, toplamSure
+        this.valueType = 'planlananMiktar'; // planlananMiktar, agirlik, brutAgirlik, toplamSure
         this.data = [];
         this.selectedMachine = ''; // Seçili makina filtresi
         this.selectedDepartment = ''; // Seçili bölüm filtresi
@@ -326,11 +326,13 @@ class ChartManager {
                         const weekItems = weekGroups[data.week] || [];
                         const uniqueItems = weekItems.length;
                         const totalWeight = weekItems.reduce((sum, item) => sum + (item.agirlik || 0), 0);
+                        const totalBrutAgirlik = weekItems.reduce((sum, item) => sum + (item.brutAgirlik || 0), 0);
                         const totalDuration = weekItems.reduce((sum, item) => sum + (item.toplamSure || 0), 0);
                         const totalQuantity = weekItems.reduce((sum, item) => sum + (item.planlananMiktar || 0), 0);
                         
                         // Formatlanmış değerler
                         const formattedWeight = totalWeight.toFixed(1);
+                        const formattedBrutAgirlik = totalBrutAgirlik.toFixed(1);
                         const formattedDuration = totalDuration.toFixed(2);
                         const formattedQuantity = totalQuantity.toFixed(1);
                         
@@ -353,6 +355,7 @@ class ChartManager {
                                             { label: "Hafta", value: data.week },
                                             { label: "Planlanan İş Emri", value: uniqueItems },
                                             { label: "Toplam Ağırlık", value: `${formattedWeight} KG` },
+                                            { label: "Toplam Brüt Ağırlık", value: `${formattedBrutAgirlik} KG` },
                                             { label: "Toplam Süre", value: `${formattedDuration} SAAT` },
                                             { label: "Planlanan Miktar", value: `${formattedQuantity} ADET` },
                                             { label: "Seçilen Değer", value: roundedTotal }
@@ -573,6 +576,7 @@ class ChartManager {
                                                         { label: "Malzeme", value: item.imalatTuru || 'N/A' },
                                                         { label: "Plan Tarihi", value: new Date(dayData.date).toLocaleDateString('tr-TR') },
                                                         { label: "Ağırlık", value: `${(Number(item.agirlik) || 0).toFixed(1)} KG` },
+                                                        { label: "Brüt Ağırlık", value: `${(Number(item.brutAgirlik) || 0).toFixed(1)} KG` },
                                                         { label: "Toplam Süre", value: `${(Number(item.toplamSure) || 0).toFixed(2)} SAAT` },
                                                         { label: "Planlanan Miktar", value: `${item.planlananMiktar || 0} ADET` },
                                                         { label: "Firma", value: item.firmaAdi || 'N/A' },

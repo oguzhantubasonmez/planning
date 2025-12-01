@@ -309,9 +309,13 @@ class PlanningApp {
      * @param {string} makineAdi - Makine adı
      * @returns {Promise<Object>} Boşluk durumu bilgileri
      */
-    async checkMachineAvailability(makineAdi) {
+    async checkMachineAvailability(makineAdi, startDate = null) {
         try {
-            const response = await fetch(`/api/machine/availability?makineAdi=${encodeURIComponent(makineAdi)}`);
+            let url = `/api/machine/availability?makineAdi=${encodeURIComponent(makineAdi)}`;
+            if (startDate) {
+                url += `&startDate=${encodeURIComponent(startDate)}`;
+            }
+            const response = await fetch(url);
             const result = await response.json();
             
             if (result.success) {
@@ -328,11 +332,12 @@ class PlanningApp {
     /**
      * Birden fazla makinenin boşluk durumunu kontrol eder
      * @param {Array<string>} makineAdlari - Makine adları dizisi
+     * @param {string} startDate - Tarih filtresi (opsiyonel)
      * @returns {Promise<Array>} Boşluk durumu bilgileri dizisi
      */
-    async checkMultipleMachineAvailability(makineAdlari) {
+    async checkMultipleMachineAvailability(makineAdlari, startDate = null) {
         try {
-            const promises = makineAdlari.map(makineAdi => this.checkMachineAvailability(makineAdi));
+            const promises = makineAdlari.map(makineAdi => this.checkMachineAvailability(makineAdi, startDate));
             const results = await Promise.all(promises);
             return results;
         } catch (error) {
@@ -984,7 +989,12 @@ class PlanningApp {
                                 const firstPlan = (current.breakdowns || []).find(b => (b.durum || '').toLowerCase() === 'planlandı');
                                 // ÖNEMLİ: updatedRecord.planId varsa ve geçerliyse onu kullan, yoksa breakdowns'tan bul
                                 current.planId = (updatedRecord.planId && updatedRecord.planId !== 'new') ? updatedRecord.planId : (firstPlan?.planId && firstPlan.planId !== 'new' ? firstPlan.planId : null);
-                                current.selectedMachine = firstPlan?.makAd || current.selectedMachine || null;
+                                // Makine bilgisini güncelle - selectedMachine varsa hem makAd hem selectedMachine'i güncelle
+                                const newMachine = updatedRecord.selectedMachine || firstPlan?.makAd || firstPlan?.selectedMachine || current.selectedMachine || null;
+                                if (newMachine) {
+                                    current.makAd = newMachine;
+                                    current.selectedMachine = newMachine;
+                                }
                                 // Açıklama alanını güncelle - önce updatedRecord'dan, sonra breakdown'lardan
                                 current.aciklama = updatedRecord.aciklama !== undefined ? updatedRecord.aciklama : (firstPlan?.aciklama || (current.breakdowns || []).find(b => b.aciklama)?.aciklama || null);
                             }
@@ -1010,7 +1020,14 @@ class PlanningApp {
                                 mainRecord.planlananTarih = updatedRecord.planTarihi || null;
                                 mainRecord.durum = updatedRecord.durum || 'Beklemede';
                                 mainRecord.planId = updatedRecord.planId || null;
-                                mainRecord.selectedMachine = updatedRecord.selectedMachine || null;
+                                // Makine bilgisini güncelle
+                                const newMachine = updatedRecord.selectedMachine || null;
+                                if (newMachine) {
+                                    mainRecord.makAd = newMachine;
+                                    mainRecord.selectedMachine = newMachine;
+                                } else {
+                                    mainRecord.selectedMachine = null;
+                                }
                                 // Açıklama alanını güncelle
                                 const plannedBreakdown = updatedRecord.planningData.breakdowns.find(b => b.durum === 'Planlandı');
                                 mainRecord.aciklama = plannedBreakdown?.aciklama || updatedRecord.planningData.breakdowns.find(b => b.aciklama)?.aciklama || null;
@@ -1047,7 +1064,12 @@ class PlanningApp {
                                 (b.durum || '').toLowerCase() === 'planlandı'
                             );
                             mainRecord.planId = firstPlannedBreakdown?.planId || null;
-                            mainRecord.selectedMachine = firstPlannedBreakdown?.makAd || firstPlannedBreakdown?.selectedMachine || null;
+                            // Makine bilgisini güncelle - selectedMachine varsa hem makAd hem selectedMachine'i güncelle
+                            const newMachine = updatedRecord.selectedMachine || firstPlannedBreakdown?.makAd || firstPlannedBreakdown?.selectedMachine || null;
+                            if (newMachine) {
+                                mainRecord.makAd = newMachine;
+                                mainRecord.selectedMachine = newMachine;
+                            }
                             }
                         } else if (brkIndex !== -1) {
                             const old = mainRecord.breakdowns[brkIndex];
@@ -1079,7 +1101,12 @@ class PlanningApp {
                             // Açıklama alanını güncelle (planlı breakdown'dan)
                             mainRecord.aciklama = firstPlan?.aciklama || (mainRecord.breakdowns || []).find(b => b.aciklama)?.aciklama || null;
                             mainRecord.planId = firstPlan?.planId || mainRecord.planId;
-                            mainRecord.selectedMachine = firstPlan?.makAd || mainRecord.selectedMachine || null;
+                            // Makine bilgisini güncelle - selectedMachine varsa hem makAd hem selectedMachine'i güncelle
+                            const newMachine = updatedRecord.selectedMachine || firstPlan?.makAd || firstPlan?.selectedMachine || mainRecord.selectedMachine || null;
+                            if (newMachine) {
+                                mainRecord.makAd = newMachine;
+                                mainRecord.selectedMachine = newMachine;
+                            }
                         }
                     }
                 }

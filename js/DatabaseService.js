@@ -115,7 +115,13 @@ class DatabaseService {
                 updatedRecords.forEach(updatedRecord => {
                     const index = data.findIndex(item => item.isemriId === updatedRecord.isemriId);
                     if (index !== -1) {
-                        data[index] = { ...data[index], ...updatedRecord };
+                        // Makine bilgisini güncelle - selectedMachine varsa hem makAd hem selectedMachine'i güncelle
+                        const updatedItem = { ...data[index], ...updatedRecord };
+                        if (updatedRecord.selectedMachine) {
+                            updatedItem.makAd = updatedRecord.selectedMachine;
+                            updatedItem.selectedMachine = updatedRecord.selectedMachine;
+                        }
+                        data[index] = updatedItem;
                     }
                 });
                 
