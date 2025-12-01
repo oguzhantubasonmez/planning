@@ -507,6 +507,16 @@ class ChartManager {
                                             { label: "Toplam Brüt Ağırlık", value: `${formattedBrutAgirlik} KG` },
                                             { label: "Toplam Süre", value: `${formattedDuration} SAAT` },
                                             { label: "Planlanan Miktar", value: `${formattedQuantity} ADET` },
+                                            { label: "Planlanan Miktar (Kalıp)", value: (() => {
+                                                // Haftalık toplam için planlanan miktar (kalıp) hesapla
+                                                let totalKalip = 0;
+                                                weekItems.forEach(item => {
+                                                    const planlananMiktar = Number(item.planlananMiktar) || 0;
+                                                    const figurSayisi = Number(item.figurSayisi) || 1;
+                                                    totalKalip += figurSayisi > 0 ? (planlananMiktar / figurSayisi) : planlananMiktar;
+                                                });
+                                                return `${totalKalip.toFixed(1)} KALIP`;
+                                            })() },
                                             { label: "Seçilen Değer", value: roundedTotal }
                                         ]
                                      })}'>
@@ -742,6 +752,11 @@ class ChartManager {
                                                         { label: "Brüt Ağırlık", value: `${(Number(item.brutAgirlik) || 0).toFixed(1)} KG` },
                                                         { label: "Toplam Süre", value: `${(Number(item.toplamSure) || 0).toFixed(2)} SAAT` },
                                                         { label: "Planlanan Miktar", value: `${item.planlananMiktar || 0} ADET` },
+                                                        { label: "Planlanan Miktar (Kalıp)", value: (() => {
+                                                            const planlananMiktar = Number(item.planlananMiktar) || 0;
+                                                            const figurSayisi = Number(item.figurSayisi) || 1;
+                                                            return figurSayisi > 0 ? `${(planlananMiktar / figurSayisi).toFixed(1)} KALIP` : `${planlananMiktar} KALIP`;
+                                                        })() },
                                                         { label: "Firma", value: item.firmaAdi || 'N/A' },
                                                         { label: "Makina", value: item.makAd || 'N/A' },
                                                         { label: "Bölüm", value: item.bolumAdi || 'N/A' }
