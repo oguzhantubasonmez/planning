@@ -5385,7 +5385,7 @@
                         <option value="agirlik">Net Ağırlık (KG)</option>
                         <option value="brutAgirlik">Brüt Ağırlık (KG)</option>
                         <option value="toplamSure">Toplam Süre (DK)</option>
-                        <option value="planlananMiktar" selected>Plan Miktar</option>
+                        <option value="planlananMiktar" selected>Plan Miktar (Kalıp)</option>
                     </select>
                 </div>
                 <div id="daysChart">
@@ -6157,10 +6157,6 @@
                 <div class="form-section">
                     <h4>Planlama Bilgileri</h4>
                     <div class="form-row">
-                        <label for="bulkPlanningTarih">Planlanan Tarih:</label>
-                        <input type="date" id="bulkPlanningTarih" required style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 200px;" />
-                    </div>
-                    <div class="form-row">
                         <label for="bulkPlanningAciklama">Açıklama:</label>
                         <textarea id="bulkPlanningAciklama" rows="3" placeholder="Planlama açıklaması (isteğe bağlı)" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
                     </div>
@@ -6309,7 +6305,8 @@
                     </div>
                     <div class="form-row">
                         <label for="moveSelectedSegmentsDate">Hedef Tarih:</label>
-                        <input type="date" id="moveSelectedSegmentsDate" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 200px;" required />
+                        <input type="date" id="moveSelectedSegmentsDate" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 200px;" />
+                        <span style="margin-left: 10px; color: #666; font-size: 12px;">(Tüm işlere varsayılan olarak yansır, her bir iş için ayrı tarih seçilebilir)</span>
                     </div>
                 </div>
                 <div class="form-section" style="margin-top: 20px;">

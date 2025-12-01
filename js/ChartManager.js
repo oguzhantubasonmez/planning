@@ -296,7 +296,15 @@ class ChartManager {
                 const weekItems = weekGroups[week] || []; // Boş haftalar için boş array
                 return {
                     week: week,
-                    total: weekItems.reduce((sum, item) => sum + (item[this.valueType] || 0), 0)
+                    total: weekItems.reduce((sum, item) => {
+                        let value = Number(item[this.valueType]) || 0;
+                        // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                        if (this.valueType === 'planlananMiktar') {
+                            const figurSayisi = Number(item.figurSayisi) || 1;
+                            value = figurSayisi > 0 ? (value / figurSayisi) : value;
+                        }
+                        return sum + value;
+                    }, 0)
                 };
             });
 
@@ -499,7 +507,15 @@ class ChartManager {
         // Önce tüm günlerin toplam değerlerini hesapla
         const dayTotals = weekDays.map((dayData) => {
             const dayItems = dayData.items || [];
-            return dayItems.reduce((sum, item) => sum + (Number(item[this.valueType]) || 0), 0);
+            return dayItems.reduce((sum, item) => {
+                let value = Number(item[this.valueType]) || 0;
+                // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                if (this.valueType === 'planlananMiktar') {
+                    const figurSayisi = Number(item.figurSayisi) || 1;
+                    value = figurSayisi > 0 ? (value / figurSayisi) : value;
+                }
+                return sum + value;
+            }, 0);
         });
         const dayTotalsFiltered = dayTotals.filter(total => total > 0);
         const maxValue = dayTotalsFiltered.length > 0 ? Math.max(...dayTotalsFiltered) : 1;
@@ -536,7 +552,13 @@ class ChartManager {
                                         ${totalValue > 0 ? totalValue.toFixed(1) : ''}
                                     </div>
                                     ${dayItems.length > 0 ? dayItems.map((item, itemIndex) => {
-                                        const segmentHeight = totalValue > 0 ? ((Number(item[this.valueType]) || 0) / totalValue) * 100 : 0;
+                                        let itemValue = Number(item[this.valueType]) || 0;
+                                        // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                                        if (this.valueType === 'planlananMiktar') {
+                                            const figurSayisi = Number(item.figurSayisi) || 1;
+                                            itemValue = figurSayisi > 0 ? (itemValue / figurSayisi) : itemValue;
+                                        }
+                                        const segmentHeight = totalValue > 0 ? (itemValue / totalValue) * 100 : 0;
                                         const colorClass = itemIndex === 0 ? 'segment-1' : 
                                                          itemIndex === 1 ? 'segment-2' : 'segment-3';
                                         
@@ -1757,6 +1779,29 @@ class ChartManager {
             dateInput.min = today.toISOString().split('T')[0]; // Geçmiş tarih seçilemez
         }
         
+        // Seçili segment'lerin bilgilerini göster (tarih input'u ayarlandıktan sonra)
+        this.populateSelectedSegmentsList();
+        
+        // Üstteki tarih değiştiğinde tüm işlerin tarihlerini güncelle
+        if (dateInput) {
+            const updateAllDates = () => {
+                const defaultDate = dateInput.value;
+                if (defaultDate) {
+                    const dateInputs = document.querySelectorAll('.segment-date-input');
+                    dateInputs.forEach(input => {
+                        // Sadece boş olanları veya kullanıcı tarafından değiştirilmemiş olanları güncelle
+                        // Kullanıcı manuel değiştirdiyse, o tarihi koru
+                        if (!input.dataset.userChanged || input.dataset.userChanged === 'false') {
+                            input.value = defaultDate;
+                        }
+                    });
+                }
+            };
+            
+            // Event listener ekle
+            dateInput.addEventListener('change', updateAllDates);
+        }
+        
         // Modal'ı göster
         modal.style.display = 'block';
         
@@ -1984,6 +2029,7 @@ class ChartManager {
         html += '<th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.5px;">Malzeme</th>';
         html += '<th style="padding: 10px 12px; text-align: center; font-weight: 600; font-size: 12px; letter-spacing: 0.5px;">Miktar</th>';
         html += '<th style="padding: 10px 12px; text-align: center; font-weight: 600; font-size: 12px; letter-spacing: 0.5px;">Mevcut Tarih</th>';
+        html += '<th style="padding: 10px 12px; text-align: center; font-weight: 600; font-size: 12px; letter-spacing: 0.5px;">Planlanan Tarih</th>';
         html += '<th style="padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.5px;">Makine</th>';
         html += '</tr></thead><tbody>';
         
@@ -2023,6 +2069,45 @@ class ChartManager {
             console.log('HTML için tarih:', { planId: info.planId, planTarihi: info.planTarihi, formattedDate });
             html += `<td style="padding: 10px 12px; text-align: center; color: #4a5568; font-size: 12px; vertical-align: middle;">${formattedDate}</td>`;
             
+            // Planlanan Tarih input'u - üstteki tarih varsayılan olarak kullanılacak
+            const defaultDateInput = document.getElementById('moveSelectedSegmentsDate');
+            let defaultDate = '';
+            if (defaultDateInput && defaultDateInput.value) {
+                defaultDate = defaultDateInput.value;
+            } else {
+                // Eğer üstteki tarih yoksa, mevcut tarihi kullan
+                if (info.planTarihi && info.planTarihi !== '-') {
+                    try {
+                        // TR formatından (DD.MM.YYYY) ISO formatına (YYYY-MM-DD) çevir
+                        const dateParts = info.planTarihi.split('.');
+                        if (dateParts.length === 3) {
+                            defaultDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                        } else {
+                            // Eğer parse edilemezse bugünün tarihini kullan
+                            const today = new Date();
+                            defaultDate = today.toISOString().split('T')[0];
+                        }
+                    } catch (e) {
+                        const today = new Date();
+                        defaultDate = today.toISOString().split('T')[0];
+                    }
+                } else {
+                    const today = new Date();
+                    defaultDate = today.toISOString().split('T')[0];
+                }
+            }
+            
+            html += `<td style="padding: 10px 12px; text-align: center; vertical-align: middle;">`;
+            html += `<input type="date" 
+                           class="segment-date-input" 
+                           data-plan-id="${info.planId}" 
+                           data-isemri-id="${info.isemriId || ''}"
+                           value="${defaultDate}"
+                           style="width: 150px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;"
+                           onfocus="this.style.borderColor='#40916c'; this.style.boxShadow='0 0 0 3px rgba(64, 145, 108, 0.1)'; this.dataset.userChanged='true';"
+                           onblur="this.style.borderColor='#cbd5e0'; this.style.boxShadow='none';" />`;
+            html += `</td>`;
+            
             // Makine dropdown'ı
             html += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle;">`;
             if (bolumMachines.length > 0) {
@@ -2052,13 +2137,25 @@ class ChartManager {
      * Seçili segment'leri taşıma işlemini onaylar
      */
     async confirmMoveSelectedSegments() {
-        const dateInput = document.getElementById('moveSelectedSegmentsDate');
-        if (!dateInput || !dateInput.value) {
-            this.showErrorMessage('Lütfen bir tarih seçin');
+        // Her bir iş için tarih kontrolü yap
+        const dateInputs = document.querySelectorAll('.segment-date-input');
+        const dateChanges = {};
+        let hasInvalidDate = false;
+        
+        dateInputs.forEach(input => {
+            const planId = input.dataset.planId;
+            const dateValue = input.value;
+            if (!dateValue) {
+                hasInvalidDate = true;
+            } else {
+                dateChanges[planId] = dateValue;
+            }
+        });
+        
+        if (hasInvalidDate) {
+            this.showErrorMessage('Lütfen tüm işler için tarih seçin');
             return;
         }
-        
-        const targetDate = dateInput.value;
         
         // Makine değişikliklerini topla
         const machineChanges = {};
@@ -2084,10 +2181,10 @@ class ChartManager {
         
         // Eğer tablodan çağrıldıysa, DataGrid'in confirmMoveSelectedRows fonksiyonunu kullan
         if (window.dataGrid && window.dataGrid.selectedRows && window.dataGrid.selectedRows.size > 0) {
-            await window.dataGrid.confirmMoveSelectedRows(targetDate, machineChanges);
+            await window.dataGrid.confirmMoveSelectedRows(dateChanges, machineChanges);
         } else {
             // Chart'tan çağrıldıysa, normal işlemi yap
-            await this.moveSelectedSegments(targetDate, machineChanges);
+            await this.moveSelectedSegments(dateChanges, machineChanges);
         }
         
         // Seçimi temizle (moveSelectedSegments içinde zaten temizleniyor ama emin olmak için)
@@ -2097,7 +2194,7 @@ class ChartManager {
     /**
      * Seçili segmentleri toplu olarak taşır
      */
-    async moveSelectedSegments(targetDate, machineChanges = {}) {
+    async moveSelectedSegments(dateChanges, machineChanges = {}) {
         if (this.selectedSegments.size === 0) {
             this.showErrorMessage('Lütfen taşımak için segment seçin');
             return;
@@ -2106,6 +2203,11 @@ class ChartManager {
         try {
             const planIds = Array.from(this.selectedSegments);
             const promises = planIds.map(planId => {
+                const targetDate = dateChanges[planId];
+                if (!targetDate) {
+                    console.warn(`PlanId ${planId} için tarih bulunamadı`);
+                    return Promise.resolve();
+                }
                 const machineChange = machineChanges[planId];
                 return this.updatePlanDate(planId, targetDate, machineChange?.newMachine);
             });
@@ -2123,7 +2225,10 @@ class ChartManager {
             // Cache'i güncelle
             if (window.dataGrid && typeof window.dataGrid.updatePlanDateInCache === 'function') {
                 planIds.forEach(planId => {
-                    window.dataGrid.updatePlanDateInCache(planId, targetDate);
+                    const targetDate = dateChanges[planId];
+                    if (targetDate) {
+                        window.dataGrid.updatePlanDateInCache(planId, targetDate);
+                    }
                 });
             }
             
@@ -2137,7 +2242,11 @@ class ChartManager {
             const machineMsg = Object.keys(machineChanges).length > 0 
                 ? ` ve ${Object.keys(machineChanges).length} makine güncellendi` 
                 : '';
-            this.showSuccessMessage(`${planIds.length} plan tarihi ${new Date(targetDate).toLocaleDateString('tr-TR')} olarak güncellendi${machineMsg}`);
+            const uniqueDates = new Set(Object.values(dateChanges));
+            const dateMsg = uniqueDates.size === 1 
+                ? `${new Date(Array.from(uniqueDates)[0]).toLocaleDateString('tr-TR')}`
+                : `${uniqueDates.size} farklı tarih`;
+            this.showSuccessMessage(`${planIds.length} plan tarihi ${dateMsg} olarak güncellendi${machineMsg}`);
             
         } catch (error) {
             console.error('Toplu taşıma hatası:', error);

@@ -2277,6 +2277,7 @@ app.get('/api/planning-data', async (req, res) => {
                 VD.TOPLAM_SURE,
                 VD.TOPLAM_HAZIRLIK_SURE,
                 VD.PLAN_MIKTAR,
+                VD.FIGUR_SAYISI,
                 VD.IMALAT_TURU,
                 VD.MAK_AD,
                 VD.BOLUM_ADI,
@@ -2348,7 +2349,8 @@ app.get('/api/planning-data', async (req, res) => {
                 imalatTuru: item.IMALAT_TURU,
                 makAd: item.MAK_AD,
                 bolumAdi: item.BOLUM_ADI,
-                firmaAdi: item.FIRMA_ADI
+                firmaAdi: item.FIRMA_ADI,
+                figurSayisi: item.FIGUR_SAYISI || 1
             };
         });
         
@@ -2769,8 +2771,8 @@ app.get('/api/data', async (req, res) => {
                 }
             }
             
-            // Sipariş miktarını hesapla (ana kayıttan)
-            const siparisMiktar = item.PLAN_MIKTAR || 0;
+            // Sipariş miktarını hesapla (ana kayıttan) - Sipariş Miktar (Adet) kullan
+            const siparisMiktar = item.SIPARIS_MIKTAR || 0;
             planningInfo.totalWaiting = Math.max(0, siparisMiktar - planningInfo.totalPlanned);
             
             // Durumu belirle
