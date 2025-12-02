@@ -1518,7 +1518,17 @@ class ChartManager {
             if ((dragData.isMultiSelect && dragData.selectedPlanIds && dragData.selectedPlanIds.length > 0) || 
                 this.selectedSegments.size > 0) {
                 if (targetDate) {
-                    await this.moveSelectedSegments(targetDate);
+                    // dateChanges objesi oluştur: her planId için aynı targetDate kullan
+                    const dateChanges = {};
+                    const planIds = dragData.isMultiSelect && dragData.selectedPlanIds 
+                        ? dragData.selectedPlanIds 
+                        : Array.from(this.selectedSegments);
+                    
+                    planIds.forEach(planId => {
+                        dateChanges[planId] = targetDate;
+                    });
+                    
+                    await this.moveSelectedSegments(dateChanges, {});
                     // Seçimi temizle
                     this.clearSelection();
                     return;
@@ -1691,7 +1701,12 @@ class ChartManager {
                 const targetDate = dropZone.dataset.date;
                 if (targetDate) {
                     e.preventDefault();
-                    this.moveSelectedSegments(targetDate);
+                    // dateChanges objesi oluştur: her planId için aynı targetDate kullan
+                    const dateChanges = {};
+                    Array.from(this.selectedSegments).forEach(planId => {
+                        dateChanges[planId] = targetDate;
+                    });
+                    this.moveSelectedSegments(dateChanges, {});
                     return;
                 }
             }
