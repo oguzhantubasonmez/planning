@@ -1137,15 +1137,13 @@ class DataGrid {
                     const selectedUstMakineGrubu = this.filters.ustMakineGrubu;
                     
                     if (makinelerInGroup.length > 0) {
-                        const selectedUstMakineGrubuTrimmed = selectedUstMakineGrubu.trim();
-                        
                         // 1. Ana kayıt makine kontrolü - alt makinelere tanımlı mı?
                         const mainMachineInGroup = makinelerInGroup.some(m => 
-                            m.trim().toLowerCase() === (item.makAd || '').trim().toLowerCase()
+                            m.toLowerCase() === (item.makAd || '').toLowerCase()
                         );
                         
                         // 2. Ana kayıt makine kontrolü - direkt üst makineye tanımlı mı?
-                        const mainMachineIsUpper = (item.makAd || '').trim().toLowerCase() === selectedUstMakineGrubuTrimmed.toLowerCase();
+                        const mainMachineIsUpper = (item.makAd || '').toLowerCase() === selectedUstMakineGrubu.toLowerCase();
                         
                         // 3. Breakdown'lardaki makine kontrolü - alt makinelere tanımlı mı?
                         let breakdownMachineInGroup = false;
@@ -1153,13 +1151,12 @@ class DataGrid {
                             breakdownMachineInGroup = item.breakdowns.some(breakdown => {
                                 const breakdownMakAd = breakdown.makAd || breakdown.selectedMachine;
                                 if (!breakdownMakAd) return false;
-                                const breakdownMakAdTrimmed = breakdownMakAd.trim();
                                 // Alt makine kontrolü
                                 const isSubMachine = makinelerInGroup.some(m => 
-                                    m.trim().toLowerCase() === breakdownMakAdTrimmed.toLowerCase()
+                                    m.toLowerCase() === breakdownMakAd.toLowerCase()
                                 );
                                 // Üst makine kontrolü
-                                const isUpperMachine = breakdownMakAdTrimmed.toLowerCase() === selectedUstMakineGrubuTrimmed.toLowerCase();
+                                const isUpperMachine = breakdownMakAd.toLowerCase() === selectedUstMakineGrubu.toLowerCase();
                                 return isSubMachine || isUpperMachine;
                             });
                         }
@@ -1167,8 +1164,8 @@ class DataGrid {
                         // 4. selectedMachine kontrolü - alt makinelere veya üst makineye tanımlı mı?
                         const selectedMachineInGroup = item.selectedMachine && (
                             makinelerInGroup.some(m => 
-                                m.trim().toLowerCase() === item.selectedMachine.trim().toLowerCase()
-                            ) || item.selectedMachine.trim().toLowerCase() === selectedUstMakineGrubuTrimmed.toLowerCase()
+                                m.toLowerCase() === item.selectedMachine.toLowerCase()
+                            ) || item.selectedMachine.toLowerCase() === selectedUstMakineGrubu.toLowerCase()
                         );
                         
                         ustMakineGrubuMatch = mainMachineInGroup || mainMachineIsUpper || breakdownMachineInGroup || selectedMachineInGroup;
@@ -1184,23 +1181,21 @@ class DataGrid {
             
             // Makine filtresi
             let makinaMatch = true;
-            if (this.filters.makina && this.filters.makina !== '') {
-                const selectedMachine = this.filters.makina.trim();
-                // Ana kayıt makine kontrolü (case-insensitive ve trim ile)
-                const mainMachineMatch = item.makAd && 
-                    item.makAd.trim().toLowerCase() === selectedMachine.toLowerCase();
+            if (this.filters.makina) {
+                const selectedMachine = this.filters.makina;
+                // Ana kayıt makine kontrolü
+                const mainMachineMatch = item.makAd === selectedMachine;
                 // Breakdown'lardaki makine kontrolü
                 let breakdownMachineMatch = false;
                 if (item.breakdowns && item.breakdowns.length > 0) {
                     breakdownMachineMatch = item.breakdowns.some(breakdown => {
                         const breakdownMakAd = breakdown.makAd || breakdown.selectedMachine;
-                        return breakdownMakAd && 
-                            breakdownMakAd.trim().toLowerCase() === selectedMachine.toLowerCase();
+                        return breakdownMakAd && breakdownMakAd.toLowerCase() === selectedMachine.toLowerCase();
                     });
                 }
                 // selectedMachine kontrolü
                 const selectedMachineMatch = item.selectedMachine && 
-                    item.selectedMachine.trim().toLowerCase() === selectedMachine.toLowerCase();
+                    item.selectedMachine.toLowerCase() === selectedMachine.toLowerCase();
                 
                 makinaMatch = mainMachineMatch || breakdownMachineMatch || selectedMachineMatch;
             }
@@ -3391,98 +3386,6 @@ class DataGrid {
     }
     
     /**
-     * Bölüm için tüm makineleri üst makine gruplarına göre gruplayarak döndürür
-     * @param {string} bolumAdi - Bölüm adı
-     * @param {string} makAd - Mevcut makine adı (üst makine grubu kontrolü için)
-     * @returns {Object} { machines: Array, groups: Object } - Gruplanmış makineler
-     */
-    async getMachinesWithGroupsForBolum(bolumAdi, makAd = '') {
-        const bolumMachines = await this.getMachinesForBolum(bolumAdi);
-        const machineGroups = {};
-        const machines = [];
-        
-        // Mapping'den üst makine gruplarını kontrol et (bölüm adı eşleşmesi için esnek kontrol)
-        let bolumMapping = this.machineMapping[bolumAdi];
-        
-        // Eğer direkt eşleşme yoksa, mapping anahtarlarını kontrol et
-        if (!bolumMapping && bolumAdi) {
-            // Önce normalize edilmiş karşılaştırma yap
-            const normalizedBolumAdi = bolumAdi.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
-            
-            Object.keys(this.machineMapping).forEach(mappingKey => {
-                const normalizedMappingKey = mappingKey.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
-                
-                // Bölüm adı mapping anahtarıyla eşleşiyor mu kontrol et
-                if (bolumAdi.includes(mappingKey) || mappingKey.includes(bolumAdi) || 
-                    normalizedBolumAdi === normalizedMappingKey ||
-                    normalizedBolumAdi.includes('maça') && normalizedMappingKey.includes('maça')) {
-                    bolumMapping = this.machineMapping[mappingKey];
-                    console.log('✅ Mapping bulundu (esnek eşleşme):', { bolumAdi, mappingKey });
-                }
-            });
-        }
-        
-        // Maça bölümü için özel durum: Mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
-        // Diğer bölümler için: Sadece veritabanında olan makineleri göster
-        const isMacaBolumu = bolumAdi && (bolumAdi.includes('MAÇA') || bolumAdi.includes('Maça') || bolumAdi.includes('maça') || 
-                                          bolumAdi.includes('MAÇAHANE') || bolumAdi.includes('Maçahane') || bolumAdi.includes('maçahane'));
-        
-        // Debug: Bölüm adı ve mapping kontrolü
-        console.log('🔍 getMachinesWithGroupsForBolum:', {
-            bolumAdi,
-            makAd,
-            isMacaBolumu,
-            hasMapping: !!bolumMapping,
-            mappingKeys: bolumMapping ? Object.keys(bolumMapping) : [],
-            bolumMachinesFromDB: bolumMachines
-        });
-        
-        if (bolumMapping) {
-            // Mapping'deki tüm üst makine gruplarını ve alt makinelerini topla
-            Object.keys(bolumMapping).forEach(ustMakineGrubu => {
-                const altMakineler = bolumMapping[ustMakineGrubu] || [];
-                
-                let gercekMakineler;
-                if (isMacaBolumu) {
-                    // Maça bölümü: Mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
-                    gercekMakineler = altMakineler;
-                } else {
-                    // Diğer bölümler: Sadece veritabanında olan makineleri göster
-                    gercekMakineler = altMakineler.filter(m => bolumMachines.includes(m));
-                }
-                
-                // Her zaman grubu ekle, makineler olsun ya da olmasın (maça için)
-                if (isMacaBolumu || gercekMakineler.length > 0) {
-                    machineGroups[ustMakineGrubu] = gercekMakineler;
-                    machines.push(...gercekMakineler.map(m => ({ makAd: m, group: ustMakineGrubu })));
-                }
-            });
-            
-            console.log('✅ Mapping bulundu, gruplar oluşturuldu:', {
-                groups: Object.keys(machineGroups),
-                totalMachines: machines.length
-            });
-        } else {
-            console.warn('⚠️ Mapping bulunamadı! Bölüm adı:', bolumAdi, 'Mapping anahtarları:', Object.keys(this.machineMapping));
-            // Mapping yoksa, hiçbir şey gösterme (çünkü gruplama yapamayız)
-            // Eğer sadece tek bir makine varsa onu göster
-            if (bolumMachines.length === 1 && makAd && bolumMachines[0] === makAd) {
-                machines.push({ makAd: makAd, group: 'Makineler' });
-                machineGroups['Makineler'] = [makAd];
-            } else if (bolumMachines.length > 0) {
-                // Mapping yoksa ama makineler varsa, basit bir grup oluştur
-                machines.push(...bolumMachines.map(m => ({ makAd: m, group: 'Makineler' })));
-                machineGroups['Makineler'] = bolumMachines;
-            } else if (makAd) {
-                machines.push({ makAd: makAd, group: 'Makineler' });
-                machineGroups['Makineler'] = [makAd];
-            }
-        }
-        
-        return { machines, groups: machineGroups };
-    }
-    
-    /**
      * Tarihi Türkçe formatında formatlar
      * @param {string|Date} date - Tarih
      * @returns {string} Formatlanmış tarih
@@ -3534,55 +3437,53 @@ class DataGrid {
             const orderMakAd = order.MAK_AD || currentMachine || '';
             
             try {
+                let machines = [];
+                
                 // Eğer makine adı yoksa, sadece "Makine bulunamadı" göster
                 if (!orderMakAd || orderMakAd.trim() === '') {
                     select.innerHTML = '<option value="">Makine bulunamadı</option>';
                     continue;
                 }
                 
-                let machines = [];
-                let machineGroups = {};
-                
-                if (orderBolumAdi) {
-                    // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(orderBolumAdi, orderMakAd);
-                    machines = result.machines;
-                    machineGroups = result.groups;
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi: orderBolumAdi, makAd: orderMakAd });
+                if (isMaca && window.planningApp) {
+                    // Maça için üst makine kontrolü yap
+                    const machineInfo = await window.planningApp.checkMachineType(orderMakAd);
+                    if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                        // Alt makineleri kullan
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        // Direkt makine veya alt makine
+                        machines = [orderMakAd].filter(Boolean);
+                    }
                 } else {
-                    // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
-                    if (orderMakAd) {
-                        machines = [{ makAd: orderMakAd, group: 'Makineler' }];
-                        machineGroups['Makineler'] = [orderMakAd];
+                    // Diğer bölümler için bölüm makinelerini al
+                    if (orderBolumAdi) {
+                        machines = await this.getMachinesForBolum(orderBolumAdi);
+                        if (machines.length === 0) {
+                            machines = [orderMakAd].filter(Boolean);
+                        }
+                    } else {
+                        machines = [orderMakAd].filter(Boolean);
                     }
                 }
                 
-                // Dropdown'ı optgroup'larla doldur
+                // Dropdown'ı doldur
                 select.innerHTML = '';
+                machines.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    if (machine === currentMachine || (currentMachine === '' && machines.length === 1)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // Eğer hiç makine yoksa
                 if (machines.length === 0) {
                     select.innerHTML = '<option value="">Makine bulunamadı</option>';
-                } else {
-                    // Default makineyi belirle
-                    const defaultMachine = currentMachine || orderMakAd || machines[0].makAd;
-                    
-                    // Optgroup'lar ile dropdown oluştur
-                    Object.keys(machineGroups).sort().forEach(groupName => {
-                        // Üst makine grubu başlığı (optgroup - seçilemez)
-                        const optgroup = document.createElement('optgroup');
-                        optgroup.label = groupName;
-                        
-                        // Bu grubun altındaki makineler
-                        machineGroups[groupName].forEach(machineName => {
-                            const option = document.createElement('option');
-                            option.value = machineName;
-                            option.textContent = machineName;
-                            if (machineName === defaultMachine) {
-                                option.selected = true;
-                            }
-                            optgroup.appendChild(option);
-                        });
-                        
-                        select.appendChild(optgroup);
-                    });
                 }
             } catch (error) {
                 console.error('Makine dropdown doldurma hatası:', error, { isemriId, order });
@@ -3608,46 +3509,46 @@ class DataGrid {
             
             try {
                 let machines = [];
-                let machineGroups = {};
                 
-                if (bolumAdi) {
-                    // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, stage.makAd || '');
-                    machines = result.machines;
-                    machineGroups = result.groups;
-                } else if (stage.makAd) {
-                    // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
-                    machines = [{ makAd: stage.makAd, group: 'Makineler' }];
-                    machineGroups['Makineler'] = [stage.makAd];
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi: bolumAdi, makAd: stage.makAd || '' });
+                if (isMaca && window.planningApp) {
+                    // Maça için üst makine kontrolü yap
+                    const machineInfo = await window.planningApp.checkMachineType(stage.makAd || '');
+                    if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                        // Alt makineleri kullan
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        // Direkt makine veya alt makine
+                        machines = [stage.makAd].filter(Boolean);
+                    }
+                } else {
+                    // Diğer bölümler için bölüm makinelerini al
+                    if (bolumAdi) {
+                        machines = await this.getMachinesForBolum(bolumAdi);
+                        if (machines.length === 0) {
+                            machines = [stage.makAd].filter(Boolean);
+                        }
+                    } else {
+                        machines = [stage.makAd].filter(Boolean);
+                    }
                 }
                 
-                // Dropdown'ı optgroup'larla doldur
+                // Dropdown'ı doldur
                 select.innerHTML = '';
+                machines.forEach(machine => {
+                    const option = document.createElement('option');
+                    option.value = machine;
+                    option.textContent = machine;
+                    if (machine === currentMachine || (currentMachine === '' && machines.length === 1)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // Eğer hiç makine yoksa
                 if (machines.length === 0) {
                     select.innerHTML = '<option value="">Makine bulunamadı</option>';
-                } else {
-                    // Default makineyi belirle
-                    const defaultMachine = currentMachine || stage.makAd || machines[0].makAd;
-                    
-                    // Optgroup'lar ile dropdown oluştur
-                    Object.keys(machineGroups).sort().forEach(groupName => {
-                        // Üst makine grubu başlığı (optgroup - seçilemez)
-                        const optgroup = document.createElement('optgroup');
-                        optgroup.label = groupName;
-                        
-                        // Bu grubun altındaki makineler
-                        machineGroups[groupName].forEach(machineName => {
-                            const option = document.createElement('option');
-                            option.value = machineName;
-                            option.textContent = machineName;
-                            if (machineName === defaultMachine) {
-                                option.selected = true;
-                            }
-                            optgroup.appendChild(option);
-                        });
-                        
-                        select.appendChild(optgroup);
-                    });
                 }
             } catch (error) {
                 console.error('Makine dropdown doldurma hatası:', error);
@@ -4606,32 +4507,32 @@ class DataGrid {
             const bolumAdi = item.bolumAdi || '';
             const makAd = item.makAd || '';
             
-            // Tüm bölümler için (maça dahil) bölüm makinelerini al
+            // Bölüm için makineleri al
             let machines = [];
-            let machineGroups = {}; // Üst makine gruplarına göre gruplanmış makineler
             let machineInfo = null;
             
-            // Bölüm makinelerini al (üst makine gruplarına göre gruplanmış)
-            // Üst makine grubuna atanmış olsa bile, TÜM bölüm makinelerini göster
-            if (bolumAdi) {
-                // makAd parametresini boş göndererek tüm grupları göster
-                // (Üst makine grubuna atanmış işler için de tüm makineler gösterilmeli)
-                const result = await this.getMachinesWithGroupsForBolum(bolumAdi, '');
-                machines = result.machines;
-                machineGroups = result.groups;
-                
-                machineInfo = { 
-                    subMachines: machines,
-                    groups: machineGroups
-                };
-            } else if (makAd) {
-                // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
-                machines = [{ makAd: makAd, group: 'Makineler' }];
-                machineGroups['Makineler'] = [makAd];
-                machineInfo = { 
-                    subMachines: machines,
-                    groups: machineGroups
-                };
+            // Maça bölümü kontrolü
+            const isMaca = this.isMacaBolumu(item);
+            if (isMaca && makAd) {
+                // Maça için üst makine kontrolü yap
+                machineInfo = await window.planningApp.checkMachineType(makAd);
+                if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
+                    machines = machineInfo.subMachines;
+                } else {
+                    // Alt makine veya direkt makine
+                    machines = [{ makAd: makAd }];
+                    machineInfo = { subMachines: machines };
+                }
+            } else {
+                // Diğer bölümler için bölüm makinelerini al
+                const bolumMachines = await this.getMachinesForBolum(bolumAdi);
+                if (bolumMachines.length > 0) {
+                    machines = bolumMachines.map(m => ({ makAd: m }));
+                    machineInfo = { subMachines: machines };
+                } else if (makAd) {
+                    machines = [{ makAd: makAd }];
+                    machineInfo = { subMachines: machines };
+                }
             }
             
             if (machines.length > 0 && machineInfo) {
@@ -4901,9 +4802,30 @@ class DataGrid {
             : siparisMiktarDefault;
         document.getElementById('planningMiktar').value = isNaN(defaultAmount) ? '' : defaultAmount;
         
-        // Tüm bölüm makinelerini göster (üst makine grubuna atanmış olsa bile)
-        // addMachineSelectionForAllDepartments kullanarak tüm maça makinelerini (tüm gruplarıyla) göster
-        await this.addMachineSelectionForAllDepartments(modal, item);
+        // Alt makinelerin boşluk durumunu kontrol et
+        const subMachineNames = machineInfo.subMachines.map(sub => sub.makAd);
+        
+        try {
+            const availabilityData = await window.planningApp.checkMultipleMachineAvailability(subMachineNames);
+            console.log('✅ Boşluk durumu verileri alındı:', availabilityData);
+            
+            // Default makineyi belirle (veritabanından gelen makine varsa onu seç)
+            const defaultMachine = this.getDefaultMachineForItem(item, machineInfo.subMachines);
+            
+            // Seçilen tarihi al
+            const tarihField = modal.querySelector('#planningTarih');
+            const selectedDate = tarihField ? tarihField.value : null;
+            
+            // Makine seçim alanını ekle
+            await this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine, selectedDate);
+            
+        } catch (error) {
+            console.error('Boşluk durumu kontrolü hatası:', error);
+            // Hata durumunda da makine seçim alanını ekle (boş verilerle)
+            const tarihField = modal.querySelector('#planningTarih');
+            const selectedDate = tarihField ? tarihField.value : null;
+            await this.addMachineSelectionField(modal, machineInfo, [], null, selectedDate);
+        }
         
         // Miktar değişikliğini dinle
         const miktarInput = document.getElementById('planningMiktar');
@@ -5001,10 +4923,9 @@ class DataGrid {
         machineField.id = 'machineSelectionField';
         
         const machines = machineInfo.subMachines || [];
-        const machineGroups = machineInfo.groups || {};
         
         // Makine durumlarını güncelle
-        await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate, machineGroups);
+        await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate);
         
         console.log('📍 Makine seçim alanı modal\'a ekleniyor...');
         // Makine seçim alanını uygun tarih alanından sonra ekle
@@ -5018,7 +4939,7 @@ class DataGrid {
             tarihField.parentNode.replaceChild(newTarihField, tarihField);
             newTarihField.addEventListener('change', async () => {
                 const newDate = newTarihField.value;
-                await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
+                await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate);
             });
         } else {
             console.error('❌ Tarih alanı bulunamadı!');
@@ -5034,7 +4955,7 @@ class DataGrid {
     /**
      * Makine seçim dropdown'ındaki seçenekleri günceller
      */
-    async updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate, machineGroups = null) {
+    async updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate) {
         const machineSelect = machineField.querySelector('#machineSelection');
         const currentValue = machineSelect ? machineSelect.value : null;
         
@@ -5048,47 +4969,22 @@ class DataGrid {
             }
         }
         
-        // Üst makine gruplarına göre makineleri grupla
-        let groupedMachines = machineGroups || {};
-        
-        // Eğer machineGroups verilmemişse, machines array'inden grupla
-        if (!machineGroups || Object.keys(machineGroups).length === 0) {
-            groupedMachines = {};
-            machines.forEach((subMachine) => {
-                const machineName = typeof subMachine === 'string' ? subMachine : subMachine.makAd;
-                const group = typeof subMachine === 'string' ? 'Makineler' : (subMachine.group || 'Makineler');
-                if (!groupedMachines[group]) {
-                    groupedMachines[group] = [];
-                }
-                groupedMachines[group].push(machineName);
-            });
-        }
-        
-        // Optgroup'lar ile dropdown oluştur
-        let options = '';
-        Object.keys(groupedMachines).sort().forEach(groupName => {
-            // Üst makine grubu başlığı (optgroup - seçilemez)
-            options += `<optgroup label="${groupName}">`;
+        const options = machines.map((subMachine) => {
+            const machineName = typeof subMachine === 'string' ? subMachine : subMachine.makAd;
+            const availability = availabilityData.find(av => av.machineName === machineName);
+            const isAvailable = availability ? availability.isAvailable : true;
+            const firstAvailableDate = availability ? availability.firstAvailableDate : null;
+            const plannedJobsCount = availability ? availability.plannedJobsCount : 0;
+            const totalPlannedQuantity = availability ? availability.totalPlannedQuantity : 0;
             
-            // Bu grubun altındaki makineler
-            groupedMachines[groupName].forEach(machineName => {
-                const availability = availabilityData.find(av => av.machineName === machineName);
-                const isAvailable = availability ? availability.isAvailable : true;
-                const firstAvailableDate = availability ? availability.firstAvailableDate : null;
-                const plannedJobsCount = availability ? availability.plannedJobsCount : 0;
-                const totalPlannedQuantity = availability ? availability.totalPlannedQuantity : 0;
-                
-                const isDefault = defaultMachine === machineName;
-                const isSelected = currentValue === machineName;
-                const statusText = isAvailable 
-                    ? `✓ Boş (${totalPlannedQuantity} adet)` 
-                    : `⚠ Dolu (${plannedJobsCount} iş, ${totalPlannedQuantity} adet)`;
-                
-                options += `<option value="${machineName}" ${isDefault || isSelected ? 'selected' : ''} data-available="${isAvailable}" data-date="${firstAvailableDate || ''}">${machineName} - ${statusText}</option>`;
-            });
+            const isDefault = defaultMachine === machineName;
+            const isSelected = currentValue === machineName;
+            const statusText = isAvailable 
+                ? `✓ Boş (${totalPlannedQuantity} adet)` 
+                : `⚠ Dolu (${plannedJobsCount} iş, ${totalPlannedQuantity} adet)`;
             
-            options += `</optgroup>`;
-        });
+            return `<option value="${machineName}" ${isDefault || isSelected ? 'selected' : ''} data-available="${isAvailable}" data-date="${firstAvailableDate || ''}">${machineName} - ${statusText}</option>`;
+        }).join('');
         
         if (machineSelect) {
             machineSelect.innerHTML = options || '<option value="">Makine bulunamadı</option>';
@@ -12854,40 +12750,36 @@ class DataGrid {
             if (!item) continue;
             
             try {
-                let machines = [];
-                let machineGroups = {};
+                // Maça bölümü kontrolü
+                const isMaca = this.isMacaBolumu({ bolumAdi, makAd });
                 
-                if (bolumAdi) {
-                    // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, makAd);
-                    machines = result.machines;
-                    machineGroups = result.groups;
-                } else if (makAd) {
-                    // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
-                    machines = [{ makAd: makAd, group: 'Makineler' }];
-                    machineGroups['Makineler'] = [makAd];
+                let machines = [];
+                
+                if (isMaca && makAd) {
+                    // Maça bölümü için alt makineleri al
+                    const machineInfo = await window.planningApp.checkMachineType(makAd);
+                    if (machineInfo && machineInfo.subMachines && machineInfo.subMachines.length > 0) {
+                        machines = machineInfo.subMachines.map(sub => sub.makAd);
+                    } else {
+                        machines = [makAd]; // Alt makine yoksa kendisini göster
+                    }
+                } else if (bolumAdi) {
+                    // Diğer bölümler için bölüm makinelerini al
+                    machines = await this.getMachinesForBolum(bolumAdi);
+                } else {
+                    machines = [makAd].filter(Boolean); // Sadece mevcut makineyi göster
                 }
                 
-                // Dropdown'ı optgroup'larla doldur
+                // Dropdown'ı doldur
                 select.innerHTML = '';
                 if (machines.length === 0) {
                     select.innerHTML = '<option value="">Makine bulunamadı</option>';
                 } else {
-                    // Default makineyi belirle
-                    const defaultMachineValue = item.selectedMachine || item.makAd || machines[0].makAd;
-                    
-                    // Optgroup'lar ile dropdown oluştur
-                    Object.keys(machineGroups).sort().forEach(groupName => {
-                        // Üst makine grubu başlığı (optgroup - seçilemez)
-                        select.innerHTML += `<optgroup label="${groupName}">`;
-                        
-                        // Bu grubun altındaki makineler
-                        machineGroups[groupName].forEach(machineName => {
-                            const isSelected = defaultMachineValue === machineName;
-                            select.innerHTML += `<option value="${machineName}" ${isSelected ? 'selected' : ''}>${machineName}</option>`;
-                        });
-                        
-                        select.innerHTML += `</optgroup>`;
+                    // Default makineyi seç
+                    const defaultMachine = item.selectedMachine || item.makAd || machines[0];
+                    machines.forEach(machine => {
+                        const isSelected = machine === defaultMachine;
+                        select.innerHTML += `<option value="${machine}" ${isSelected ? 'selected' : ''}>${machine}</option>`;
                     });
                 }
             } catch (error) {

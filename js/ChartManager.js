@@ -6,7 +6,7 @@ class ChartManager {
         this.selectedWeek = null;
         this.selectedDayIndex = -1;
         this.selectedSegmentIndex = -1;
-        this.valueType = 'planlananMiktar'; // planlananMiktar, agirlik, brutAgirlik, toplamSure
+        this.valueType = 'planlananMiktar'; // planlananMiktar (kalıp), planlananMiktarAdet (adet), agirlik, brutAgirlik, toplamSure
         this.data = [];
         this.selectedMachine = ''; // Seçili makina filtresi
         this.selectedDepartment = ''; // Seçili bölüm filtresi
@@ -439,10 +439,18 @@ class ChartManager {
                     week: week,
                     total: weekItems.reduce((sum, item) => {
                         let value = Number(item[this.valueType]) || 0;
-                        // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                        // Plan miktar (kalıp) seçildiğinde planlananMiktar/figurSayisi göster (yukarı yuvarlama)
                         if (this.valueType === 'planlananMiktar') {
                             const figurSayisi = Number(item.figurSayisi) || 1;
-                            value = figurSayisi > 0 ? (value / figurSayisi) : value;
+                            if (figurSayisi > 0) {
+                                const calculatedValue = value / figurSayisi;
+                                // Tam sayı değilse yukarı yuvarla, tam sayıysa olduğu gibi bırak
+                                value = calculatedValue % 1 === 0 ? calculatedValue : Math.ceil(calculatedValue);
+                            }
+                        }
+                        // Plan miktar (adet) seçildiğinde sadece planlananMiktar göster (figür sayısına bölmeden)
+                        else if (this.valueType === 'planlananMiktarAdet') {
+                            value = Number(item.planlananMiktar) || 0;
                         }
                         return sum + value;
                     }, 0)
@@ -508,20 +516,27 @@ class ChartManager {
                                             { label: "Toplam Süre", value: `${formattedDuration} SAAT` },
                                             { label: "Planlanan Miktar", value: `${formattedQuantity} ADET` },
                                             { label: "Planlanan Miktar (Kalıp)", value: (() => {
-                                                // Haftalık toplam için planlanan miktar (kalıp) hesapla
+                                                // Haftalık toplam için planlanan miktar (kalıp) hesapla (yukarı yuvarlama)
                                                 let totalKalip = 0;
                                                 weekItems.forEach(item => {
                                                     const planlananMiktar = Number(item.planlananMiktar) || 0;
                                                     const figurSayisi = Number(item.figurSayisi) || 1;
-                                                    totalKalip += figurSayisi > 0 ? (planlananMiktar / figurSayisi) : planlananMiktar;
+                                                    if (figurSayisi > 0) {
+                                                        const calculatedValue = planlananMiktar / figurSayisi;
+                                                        // Tam sayı değilse yukarı yuvarla, tam sayıysa olduğu gibi bırak
+                                                        const roundedValue = calculatedValue % 1 === 0 ? calculatedValue : Math.ceil(calculatedValue);
+                                                        totalKalip += roundedValue;
+                                                    } else {
+                                                        totalKalip += planlananMiktar;
+                                                    }
                                                 });
-                                                return `${totalKalip.toFixed(1)} KALIP`;
+                                                return `${totalKalip} KALIP`;
                                             })() },
                                             { label: "Seçilen Değer", value: roundedTotal }
                                         ]
                                      })}'>
                                 </div>
-                                <div class="bar-value">${roundedTotal > 0 ? roundedTotal.toFixed(1) : ''}</div>
+                                <div class="bar-value">${roundedTotal > 0 ? (roundedTotal % 1 === 0 ? roundedTotal : roundedTotal.toFixed(1)) : ''}</div>
                             </div>
                         `;
                     }).join('')}
@@ -660,10 +675,18 @@ class ChartManager {
             const dayItems = dayData.items || [];
             return dayItems.reduce((sum, item) => {
                 let value = Number(item[this.valueType]) || 0;
-                // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                // Plan miktar (kalıp) seçildiğinde planlananMiktar/figurSayisi göster (yukarı yuvarlama)
                 if (this.valueType === 'planlananMiktar') {
                     const figurSayisi = Number(item.figurSayisi) || 1;
-                    value = figurSayisi > 0 ? (value / figurSayisi) : value;
+                    if (figurSayisi > 0) {
+                        const calculatedValue = value / figurSayisi;
+                        // Tam sayı değilse yukarı yuvarla, tam sayıysa olduğu gibi bırak
+                        value = calculatedValue % 1 === 0 ? calculatedValue : Math.ceil(calculatedValue);
+                    }
+                }
+                // Plan miktar (adet) seçildiğinde sadece planlananMiktar göster (figür sayısına bölmeden)
+                else if (this.valueType === 'planlananMiktarAdet') {
+                    value = Number(item.planlananMiktar) || 0;
                 }
                 return sum + value;
             }, 0);
@@ -700,14 +723,22 @@ class ChartManager {
                                      data-date="${dayData.date}"
                                      data-day-index="${dayIndex}">
                                     <div class="day-total-value ${isSelected ? 'selected' : ''}">
-                                        ${totalValue > 0 ? totalValue.toFixed(1) : ''}
+                                        ${totalValue > 0 ? (totalValue % 1 === 0 ? totalValue : totalValue.toFixed(1)) : ''}
                                     </div>
                                     ${dayItems.length > 0 ? dayItems.map((item, itemIndex) => {
                                         let itemValue = Number(item[this.valueType]) || 0;
-                                        // Plan miktar seçildiğinde planlananMiktar/figurSayisi göster
+                                        // Plan miktar (kalıp) seçildiğinde planlananMiktar/figurSayisi göster (yukarı yuvarlama)
                                         if (this.valueType === 'planlananMiktar') {
                                             const figurSayisi = Number(item.figurSayisi) || 1;
-                                            itemValue = figurSayisi > 0 ? (itemValue / figurSayisi) : itemValue;
+                                            if (figurSayisi > 0) {
+                                                const calculatedValue = itemValue / figurSayisi;
+                                                // Tam sayı değilse yukarı yuvarla, tam sayıysa olduğu gibi bırak
+                                                itemValue = calculatedValue % 1 === 0 ? calculatedValue : Math.ceil(calculatedValue);
+                                            }
+                                        }
+                                        // Plan miktar (adet) seçildiğinde sadece planlananMiktar göster (figür sayısına bölmeden)
+                                        else if (this.valueType === 'planlananMiktarAdet') {
+                                            itemValue = Number(item.planlananMiktar) || 0;
                                         }
                                         const segmentHeight = totalValue > 0 ? (itemValue / totalValue) * 100 : 0;
                                         const colorClass = itemIndex === 0 ? 'segment-1' : 
@@ -755,7 +786,13 @@ class ChartManager {
                                                         { label: "Planlanan Miktar (Kalıp)", value: (() => {
                                                             const planlananMiktar = Number(item.planlananMiktar) || 0;
                                                             const figurSayisi = Number(item.figurSayisi) || 1;
-                                                            return figurSayisi > 0 ? `${(planlananMiktar / figurSayisi).toFixed(1)} KALIP` : `${planlananMiktar} KALIP`;
+                                                            if (figurSayisi > 0) {
+                                                                const calculatedValue = planlananMiktar / figurSayisi;
+                                                                // Tam sayı değilse yukarı yuvarla, tam sayıysa olduğu gibi bırak
+                                                                const roundedValue = calculatedValue % 1 === 0 ? calculatedValue : Math.ceil(calculatedValue);
+                                                                return `${roundedValue} KALIP`;
+                                                            }
+                                                            return `${planlananMiktar} KALIP`;
                                                         })() },
                                                         { label: "Firma", value: item.firmaAdi || 'N/A' },
                                                         { label: "Makina", value: item.makAd || 'N/A' },
@@ -2012,7 +2049,7 @@ class ChartManager {
     /**
      * Seçili segment'lerin listesini doldurur
      */
-    populateSelectedSegmentsList() {
+    async populateSelectedSegmentsList() {
         const listContainer = document.getElementById('selectedSegmentsList');
         if (!listContainer) return;
         
@@ -2237,31 +2274,18 @@ class ChartManager {
             }
         });
         
-        // Mevcut data'dan bölümlere göre makine listelerini doldur
-        if (window.planningApp && window.planningApp.data) {
-            window.planningApp.data.forEach(item => {
-                if (item.bolumAdi && machinesByBolum[item.bolumAdi] && item.makAd) {
-                    machinesByBolum[item.bolumAdi].add(item.makAd);
-                }
-            });
-        }
-        
-        selectedSegmentsInfo.forEach((info, index) => {
+        // Her segment için makine dropdown'ını oluştur (async işlem için Promise.all kullanılacak)
+        const segmentPromises = selectedSegmentsInfo.map(async (info, index) => {
             const rowBgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
             
-            // Bu bölüm için makine listesini al
-            const bolumMachines = info.bolumAdi && info.bolumAdi !== '-' && machinesByBolum[info.bolumAdi] 
-                ? Array.from(machinesByBolum[info.bolumAdi]).sort() 
-                : [];
-            
-            html += `<tr style="background-color: ${rowBgColor}; border-bottom: 1px solid #e0e0e0;">`;
-            html += `<td style="padding: 10px 12px; color: #2d3748; font-size: 12px; vertical-align: middle;">${info.isemriNo || '-'}</td>`;
-            html += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${info.imalatTuru || '-'}">${info.malhizKodu || '-'}</td>`;
-            html += `<td style="padding: 10px 12px; text-align: center; color: #4a5568; font-size: 12px; vertical-align: middle;">${info.planlananMiktar || '-'}</td>`;
+            let rowHtml = `<tr style="background-color: ${rowBgColor}; border-bottom: 1px solid #e0e0e0;">`;
+            rowHtml += `<td style="padding: 10px 12px; color: #2d3748; font-size: 12px; vertical-align: middle;">${info.isemriNo || '-'}</td>`;
+            rowHtml += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${info.imalatTuru || '-'}">${info.malhizKodu || '-'}</td>`;
+            rowHtml += `<td style="padding: 10px 12px; text-align: center; color: #4a5568; font-size: 12px; vertical-align: middle;">${info.planlananMiktar || '-'}</td>`;
             // Tarih - zaten formatlanmış olarak geliyor, direkt kullan
             const formattedDate = info.planTarihi && info.planTarihi !== '-' ? info.planTarihi : '-';
             console.log('HTML için tarih:', { planId: info.planId, planTarihi: info.planTarihi, formattedDate });
-            html += `<td style="padding: 10px 12px; text-align: center; color: #4a5568; font-size: 12px; vertical-align: middle;">${formattedDate}</td>`;
+            rowHtml += `<td style="padding: 10px 12px; text-align: center; color: #4a5568; font-size: 12px; vertical-align: middle;">${formattedDate}</td>`;
             
             // Planlanan Tarih input'u - üstteki tarih varsayılan olarak kullanılacak
             const defaultDateInput = document.getElementById('moveSelectedSegmentsDate');
@@ -2291,8 +2315,8 @@ class ChartManager {
                 }
             }
             
-            html += `<td style="padding: 10px 12px; text-align: center; vertical-align: middle;">`;
-            html += `<input type="date" 
+            rowHtml += `<td style="padding: 10px 12px; text-align: center; vertical-align: middle;">`;
+            rowHtml += `<input type="date" 
                            class="segment-date-input" 
                            data-plan-id="${info.planId}" 
                            data-isemri-id="${info.isemriId || ''}"
@@ -2300,28 +2324,58 @@ class ChartManager {
                            style="width: 150px; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;"
                            onfocus="this.style.borderColor='#40916c'; this.style.boxShadow='0 0 0 3px rgba(64, 145, 108, 0.1)'; this.dataset.userChanged='true';"
                            onblur="this.style.borderColor='#cbd5e0'; this.style.boxShadow='none';" />`;
-            html += `</td>`;
+            rowHtml += `</td>`;
             
-            // Makine dropdown'ı
-            html += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle;">`;
-            if (bolumMachines.length > 0) {
-                html += `<select class="machine-select" data-plan-id="${info.planId}" data-isemri-id="${info.isemriId || ''}" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px; background-color: white; cursor: pointer;">`;
-                const currentMakAd = info.makAd && info.makAd !== '-' ? info.makAd : '';
-                // Mevcut makine listede yoksa ekle
-                if (currentMakAd && !bolumMachines.includes(currentMakAd)) {
-                    html += `<option value="${currentMakAd}" selected>${currentMakAd}</option>`;
+            // Makine dropdown'ı - üst makine gruplarına göre
+            rowHtml += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle;">`;
+            const currentMakAd = info.makAd && info.makAd !== '-' ? info.makAd : '';
+            
+            if (info.bolumAdi && info.bolumAdi !== '-' && window.dataGrid) {
+                try {
+                    // Bölüm makinelerini üst makine gruplarına göre al
+                    const result = await window.dataGrid.getMachinesWithGroupsForBolum(info.bolumAdi, currentMakAd);
+                    const machines = result.machines;
+                    const machineGroups = result.groups;
+                    
+                    if (machines.length > 0) {
+                        rowHtml += `<select class="machine-select" data-plan-id="${info.planId}" data-isemri-id="${info.isemriId || ''}" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px; background-color: white; cursor: pointer;">`;
+                        
+                        // Mevcut makine listede yoksa ekle
+                        const allMachineNames = machines.map(m => m.makAd);
+                        if (currentMakAd && !allMachineNames.includes(currentMakAd)) {
+                            rowHtml += `<option value="${currentMakAd}" selected>${currentMakAd}</option>`;
+                        }
+                        
+                        // Optgroup'lar ile dropdown oluştur
+                        Object.keys(machineGroups).sort().forEach(groupName => {
+                            rowHtml += `<optgroup label="${groupName}">`;
+                            machineGroups[groupName].forEach(machineName => {
+                                const selected = machineName === currentMakAd ? 'selected' : '';
+                                rowHtml += `<option value="${machineName}" ${selected}>${machineName}</option>`;
+                            });
+                            rowHtml += `</optgroup>`;
+                        });
+                        
+                        rowHtml += `</select>`;
+                    } else {
+                        rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
+                    }
+                } catch (error) {
+                    console.error('Makine dropdown oluşturma hatası:', error);
+                    rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
                 }
-                bolumMachines.forEach(makine => {
-                    const selected = makine === currentMakAd ? 'selected' : '';
-                    html += `<option value="${makine}" ${selected}>${makine}</option>`;
-                });
-                html += `</select>`;
             } else {
-                html += `<span style="color: #999;">${info.makAd || '-'}</span>`;
+                rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
             }
-            html += `</td>`;
-            html += '</tr>';
+            
+            rowHtml += `</td>`;
+            rowHtml += '</tr>';
+            return rowHtml;
         });
+        
+        // Tüm segment'lerin HTML'ini bekleyip birleştir
+        const segmentRows = await Promise.all(segmentPromises);
+        html += segmentRows.join('');
         
         html += '</tbody></table>';
         listContainer.innerHTML = html;

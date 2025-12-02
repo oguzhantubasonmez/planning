@@ -20,6 +20,21 @@
             --theme-table-header-start: #1a4d2e;
             --theme-table-header-mid: #2d6a4f;
             --theme-table-header-end: #1a4d2e;
+            
+            /* Stil Değişkenleri - Varsayılan: Modern */
+            --style-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --style-border-radius: 12px;
+            --style-border-radius-small: 8px;
+            --style-border-radius-large: 16px;
+            --style-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            --style-shadow-small: 0 2px 6px rgba(0, 0, 0, 0.1);
+            --style-shadow-large: 0 8px 24px rgba(0, 0, 0, 0.2);
+            --style-spacing: 16px;
+            --style-spacing-small: 8px;
+            --style-spacing-large: 24px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 2px;
+            --style-transition: all 0.3s ease;
         }
 
         /* Tema 1: Yeşil */
@@ -247,6 +262,75 @@
             --theme-table-header-end: #7a3434;
         }
 
+        /* Stil Seçenekleri */
+        /* Stil 1: Modern (Varsayılan) */
+        [data-style="modern"] {
+            --style-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --style-border-radius: 12px;
+            --style-border-radius-small: 8px;
+            --style-border-radius-large: 16px;
+            --style-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            --style-shadow-small: 0 2px 6px rgba(0, 0, 0, 0.1);
+            --style-shadow-large: 0 8px 24px rgba(0, 0, 0, 0.2);
+            --style-spacing: 16px;
+            --style-spacing-small: 8px;
+            --style-spacing-large: 24px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 2px;
+            --style-transition: all 0.3s ease;
+        }
+
+        /* Stil 2: Minimal */
+        [data-style="minimal"] {
+            --style-font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            --style-border-radius: 4px;
+            --style-border-radius-small: 2px;
+            --style-border-radius-large: 8px;
+            --style-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            --style-shadow-small: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --style-shadow-large: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --style-spacing: 12px;
+            --style-spacing-small: 6px;
+            --style-spacing-large: 20px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 1px;
+            --style-transition: all 0.2s ease;
+        }
+
+        /* Stil 3: Classic */
+        [data-style="classic"] {
+            --style-font-family: 'Times New Roman', Times, serif;
+            --style-border-radius: 0px;
+            --style-border-radius-small: 0px;
+            --style-border-radius-large: 0px;
+            --style-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            --style-shadow-small: 0 1px 2px rgba(0, 0, 0, 0.08);
+            --style-shadow-large: 0 4px 8px rgba(0, 0, 0, 0.15);
+            --style-spacing: 12px;
+            --style-spacing-small: 6px;
+            --style-spacing-large: 20px;
+            --style-border-width: 2px;
+            --style-border-width-thick: 3px;
+            --style-transition: all 0.25s ease;
+        }
+
+        /* Stil 4: Bold */
+        [data-style="bold"] {
+            --style-font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
+            --style-border-radius: 16px;
+            --style-border-radius-small: 10px;
+            --style-border-radius-large: 20px;
+            --style-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+            --style-shadow-small: 0 3px 8px rgba(0, 0, 0, 0.15);
+            --style-shadow-large: 0 10px 32px rgba(0, 0, 0, 0.25);
+            --style-spacing: 20px;
+            --style-spacing-small: 10px;
+            --style-spacing-large: 30px;
+            --style-border-width: 2px;
+            --style-border-width-thick: 4px;
+            --style-transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         /* Toast Notification Sistemi */
         .toast-container {
             position: fixed;
@@ -372,7 +456,7 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: var(--style-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
             background-color: #f5f5f5;
             height: 100vh; /* Tam ekran yüksekliği */
             width: 100vw; /* Tam ekran genişliği */
@@ -2118,8 +2202,8 @@
         #daysChart, #weeksChart {
             flex: 1;
             min-height: 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: var(--style-border-width, 1px) solid #ddd;
+            border-radius: var(--style-border-radius-small, 4px);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -2127,6 +2211,7 @@
             background: #fafafa;
             padding: 20px 0;
             overflow: hidden;
+            box-shadow: var(--style-shadow-small, 0 2px 6px rgba(0, 0, 0, 0.1));
         }
         
         .chart-placeholder {
@@ -4923,32 +5008,32 @@
 
 
         /* Tema Seçici Butonu */
-        .theme-selector-btn {
+        .theme-selector-btn,
+        .style-selector-btn {
             background: linear-gradient(135deg, 
                 rgba(255, 255, 255, 0.2) 0%,
                 rgba(255, 255, 255, 0.15) 50%,
                 rgba(255, 255, 255, 0.18) 100%);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
+            border-radius: var(--style-border-radius-small, 12px);
             padding: 10px 16px;
             cursor: pointer;
             color: white;
             font-size: 22px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: var(--style-transition, all 0.4s cubic-bezier(0.4, 0, 0.2, 1));
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 
-                0 4px 16px rgba(0, 0, 0, 0.1),
-                0 2px 6px rgba(0, 0, 0, 0.08),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            box-shadow: var(--style-shadow-small, 0 4px 16px rgba(0, 0, 0, 0.1));
             position: relative;
             overflow: hidden;
+            margin-right: 8px;
         }
 
-        .theme-selector-btn::before {
+        .theme-selector-btn::before,
+        .style-selector-btn::before {
             content: '';
             position: absolute;
             top: 0;
@@ -4962,24 +5047,24 @@
             transition: left 0.5s ease;
         }
         
-        .theme-selector-btn:hover::before {
+        .theme-selector-btn:hover::before,
+        .style-selector-btn:hover::before {
             left: 100%;
         }
         
-        .theme-selector-btn:hover {
+        .theme-selector-btn:hover,
+        .style-selector-btn:hover {
             background: linear-gradient(135deg, 
                 rgba(255, 255, 255, 0.28) 0%,
                 rgba(255, 255, 255, 0.22) 50%,
                 rgba(255, 255, 255, 0.25) 100%);
             transform: translateY(-3px) scale(1.05);
-            box-shadow: 
-                0 8px 24px rgba(0, 0, 0, 0.15),
-                0 4px 12px rgba(0, 0, 0, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            box-shadow: var(--style-shadow, 0 8px 24px rgba(0, 0, 0, 0.15));
             border-color: rgba(255, 255, 255, 0.4);
         }
         
-        .theme-selector-btn:active {
+        .theme-selector-btn:active,
+        .style-selector-btn:active {
             transform: translateY(-1px) scale(1.02);
         }
 
@@ -5054,28 +5139,36 @@
             margin-top: 20px;
         }
 
-        .theme-option {
+        .theme-option,
+        .style-option {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
             padding: 20px;
-            border-radius: 12px;
+            border-radius: var(--style-border-radius-small, 12px);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: var(--style-transition, all 0.3s ease);
             border: 3px solid transparent;
             background: #f8f9fa;
         }
 
-        .theme-option:hover {
+        .theme-option:hover,
+        .style-option:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--style-shadow, 0 8px 20px rgba(0, 0, 0, 0.15));
         }
 
-        .theme-option.active {
+        .theme-option.active,
+        .style-option.active {
             border-color: var(--theme-button-start);
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
             background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .style-preview {
+            width: 100%;
+            margin-bottom: 8px;
         }
 
         .theme-color-preview {
@@ -5258,6 +5351,9 @@
                 <button class="theme-selector-btn" onclick="openThemeSelector()" title="Tema Seç">
                     🎨
                 </button>
+                <button class="style-selector-btn" onclick="openStyleSelector()" title="Stil Seç">
+                    🎭
+                </button>
                 <div class="user-info">
                     <div class="user-name">👤 Planlama Departmanı</div>
                     <div class="current-date" id="currentDate"></div>
@@ -5386,6 +5482,7 @@
                         <option value="brutAgirlik">Brüt Ağırlık (KG)</option>
                         <option value="toplamSure">Toplam Süre (DK)</option>
                         <option value="planlananMiktar" selected>Plan Miktar (Kalıp)</option>
+                        <option value="planlananMiktarAdet">Plan Miktar (Adet)</option>
                     </select>
                 </div>
                 <div id="daysChart">
@@ -6793,19 +6890,69 @@
             document.documentElement.setAttribute('data-theme', savedTheme);
         }
 
-        // Sayfa yüklendiğinde tema'yı yükle
+        // Stil Seçici Fonksiyonları
+        function openStyleSelector() {
+            const modal = document.getElementById('styleSelectorModal');
+            if (modal) {
+                modal.style.display = 'block';
+                updateActiveStyle();
+            }
+        }
+
+        function closeStyleSelector() {
+            const modal = document.getElementById('styleSelectorModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function setStyle(styleName) {
+            // HTML elementine data-style attribute'u ekle
+            document.documentElement.setAttribute('data-style', styleName);
+            
+            // LocalStorage'a kaydet
+            localStorage.setItem('selectedStyle', styleName);
+            
+            // Aktif stili güncelle
+            updateActiveStyle();
+            
+            // Modal'ı kapat
+            closeStyleSelector();
+        }
+
+        function updateActiveStyle() {
+            const currentStyle = localStorage.getItem('selectedStyle') || 'modern';
+            const styleOptions = document.querySelectorAll('.style-option');
+            styleOptions.forEach(option => {
+                option.classList.remove('active');
+                if (option.getAttribute('data-style') === currentStyle) {
+                    option.classList.add('active');
+                }
+            });
+        }
+
+        function loadStyle() {
+            const savedStyle = localStorage.getItem('selectedStyle') || 'modern';
+            document.documentElement.setAttribute('data-style', savedStyle);
+        }
+
+        // Sayfa yüklendiğinde tema ve stili yükle
         document.addEventListener('DOMContentLoaded', function() {
             loadTheme();
+            loadStyle();
             
             // Modal dışına tıklandığında kapat
-            const modal = document.getElementById('themeSelectorModal');
-            if (modal) {
-                window.onclick = function(event) {
-                    if (event.target === modal) {
-                        closeThemeSelector();
-                    }
+            window.addEventListener('click', function(event) {
+                const themeModal = document.getElementById('themeSelectorModal');
+                if (themeModal && event.target === themeModal) {
+                    closeThemeSelector();
                 }
-            }
+                
+                const styleModal = document.getElementById('styleSelectorModal');
+                if (styleModal && event.target === styleModal) {
+                    closeStyleSelector();
+                }
+            });
         });
     </script>
 
@@ -6880,6 +7027,43 @@
                     <div class="theme-option" data-theme="rose" onclick="setTheme('rose')">
                         <div class="theme-color-preview"></div>
                         <div class="theme-name">Rose</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stil Seçici Modal -->
+    <div id="styleSelectorModal" class="theme-selector-modal">
+        <div class="theme-selector-content">
+            <div class="theme-selector-header">
+                <h3>🎭 Stil Seç</h3>
+                <span class="theme-selector-close" onclick="closeStyleSelector()">&times;</span>
+            </div>
+            <div class="theme-selector-body">
+                <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+                    Yazı tipleri, tablo görünümü ve chart görünümü gibi temel öğelerin stilini değiştirmek için bir stil seçin.
+                </p>
+                <div class="theme-grid">
+                    <div class="style-option" data-style="modern" onclick="setStyle('modern')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; height: 60px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);"></div>
+                        <div class="theme-name">Modern</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Yuvarlatılmış köşeler, gölgeler</div>
+                    </div>
+                    <div class="style-option" data-style="minimal" onclick="setStyle('minimal')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 4px; height: 60px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);"></div>
+                        <div class="theme-name">Minimal</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Düz çizgiler, az gölge</div>
+                    </div>
+                    <div class="style-option" data-style="classic" onclick="setStyle('classic')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0px; height: 60px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #333;"></div>
+                        <div class="theme-name">Classic</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Keskin köşeler, klasik</div>
+                    </div>
+                    <div class="style-option" data-style="bold" onclick="setStyle('bold')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; height: 60px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2); border: 2px solid #333;"></div>
+                        <div class="theme-name">Bold</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Kalın çizgiler, belirgin gölgeler</div>
                     </div>
                 </div>
             </div>
