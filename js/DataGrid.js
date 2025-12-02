@@ -217,6 +217,7 @@ class DataGrid {
         const columnLabels = {
             'durum': 'Durum',
             'isemriNo': 'İş Emri No',
+            'siparisNo': 'Sipariş No',
             'malhizKodu': 'Malzeme Kodu',
             'imalatTuru': 'Malzeme',
             'makAd': 'Makina Adı',
@@ -247,7 +248,7 @@ class DataGrid {
         theadRow.innerHTML = '';
         
         // columnOrder içinde olmayan ama columnLabels içinde olan sütunları bul ve ekle
-        const defaultOrder = ['durum', 'isemriNo', 'malhizKodu', 'imalatTuru', 'makAd', 'tarih', 'agirlik', 'brutAgirlik', 'toplamSure', 'planMiktar', 'figurSayisi', 'siparisMiktarHesaplanan', 'sevkMiktari', 'bakiyeMiktar', 'gercekMiktar', 'planlananMiktar', 'planlananTarih', 'onerilenTeslimTarih', 'firmaAdi', 'aciklama'];
+        const defaultOrder = ['durum', 'isemriNo', 'siparisNo', 'malhizKodu', 'imalatTuru', 'makAd', 'tarih', 'agirlik', 'brutAgirlik', 'toplamSure', 'planMiktar', 'figurSayisi', 'siparisMiktarHesaplanan', 'sevkMiktari', 'bakiyeMiktar', 'gercekMiktar', 'planlananMiktar', 'planlananTarih', 'onerilenTeslimTarih', 'firmaAdi', 'aciklama'];
         const missingColumns = Object.keys(columnLabels).filter(key => !this.columnOrder.includes(key));
         if (missingColumns.length > 0) {
             // Eksik sütunları varsayılan konumlarına ekle
@@ -1299,6 +1300,7 @@ class DataGrid {
                 const searchTerm = this.filters.search;
                 searchMatch = (
                     this.safeStringSearch(item.isemriNo, searchTerm) ||
+                    this.safeStringSearch(item.siparisNo, searchTerm) ||
                     this.safeStringSearch(item.malhizKodu, searchTerm) ||
                     this.safeStringSearch(item.malhizAdi, searchTerm) ||
                     this.safeStringSearch(item.imalatTuru, searchTerm) ||
@@ -1550,6 +1552,8 @@ class DataGrid {
                         : `${statusBadge}${machineInfo}`;
                 case 'isemriNo':
                     return item.isemriNo || '';
+                case 'siparisNo':
+                    return item.siparisNo || '-';
                 case 'malhizKodu':
                     return item.malhizKodu || '';
                 case 'imalatTuru':
@@ -1944,6 +1948,8 @@ class DataGrid {
                     return `<span class="breakdown-indent">└─</span>${statusBadge}${machineInfo}`;
                 case 'isemriNo':
                     return breakdown.parcaNo || '';
+                case 'siparisNo':
+                    return item.siparisNo || '-';
                 case 'malhizKodu':
                     return item.malhizKodu || '';
                 case 'imalatTuru':
@@ -12028,6 +12034,7 @@ class DataGrid {
         const defaultOrder = [
             'durum',
             'isemriNo',
+            'siparisNo',
             'malhizKodu',
             'imalatTuru',
             'makAd',
@@ -12052,6 +12059,49 @@ class DataGrid {
         if (saved) {
             try {
                 const loadedOrder = JSON.parse(saved);
+                
+                // Eğer siparisNo eksikse, isemriNo'dan sonra ekle
+                const siparisNoIndex = loadedOrder.indexOf('siparisNo');
+                const isemriNoIndex = loadedOrder.indexOf('isemriNo');
+                
+                if (siparisNoIndex === -1) {
+                    // siparisNo yoksa, isemriNo'dan sonra ekle
+                    if (isemriNoIndex !== -1) {
+                        loadedOrder.splice(isemriNoIndex + 1, 0, 'siparisNo');
+                    } else {
+                        // isemriNo da yoksa, varsayılan konuma ekle
+                        const defaultIndex = defaultOrder.indexOf('siparisNo');
+                        const insertAfter = defaultOrder[defaultIndex - 1];
+                        const insertIndex = loadedOrder.indexOf(insertAfter);
+                        if (insertIndex !== -1) {
+                            loadedOrder.splice(insertIndex + 1, 0, 'siparisNo');
+                        } else {
+                            loadedOrder.push('siparisNo');
+                        }
+                    }
+                    // Güncellenmiş sıralamayı kaydet
+                    localStorage.setItem('columnOrder', JSON.stringify(loadedOrder));
+                } else if (isemriNoIndex !== -1 && siparisNoIndex !== isemriNoIndex + 1) {
+                    // siparisNo var ama isemriNo'nun hemen yanında değilse, taşı
+                    loadedOrder.splice(siparisNoIndex, 1); // Önce mevcut konumdan çıkar
+                    const updatedIsemriNoIndex = loadedOrder.indexOf('isemriNo');
+                    if (updatedIsemriNoIndex !== -1) {
+                        loadedOrder.splice(updatedIsemriNoIndex + 1, 0, 'siparisNo');
+                    } else {
+                        // isemriNo silinmişse, varsayılan konuma ekle
+                        const defaultIndex = defaultOrder.indexOf('siparisNo');
+                        const insertAfter = defaultOrder[defaultIndex - 1];
+                        const insertIndex = loadedOrder.indexOf(insertAfter);
+                        if (insertIndex !== -1) {
+                            loadedOrder.splice(insertIndex + 1, 0, 'siparisNo');
+                        } else {
+                            loadedOrder.push('siparisNo');
+                        }
+                    }
+                    // Güncellenmiş sıralamayı kaydet
+                    localStorage.setItem('columnOrder', JSON.stringify(loadedOrder));
+                }
+                
                 // Eğer figurSayisi eksikse veya yanlış yerdeyse, planMiktar'dan sonra taşı
                 const figurSayisiIndex = loadedOrder.indexOf('figurSayisi');
                 const planMiktarIndex = loadedOrder.indexOf('planMiktar');

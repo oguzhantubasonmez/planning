@@ -2628,6 +2628,7 @@ app.get('/api/data', async (req, res) => {
                     VD.ISEMRI_ID,
                     VD.ISEMRI_NO,
                     VD.ISEMRI_SIRA,
+                    VD.SIP_KOD,
                     VD.MALHIZ_KODU,
                     VD.MALHIZ_ADI,
                     VD.ISEMRI_AC_TAR,
@@ -2852,6 +2853,7 @@ app.get('/api/data', async (req, res) => {
             return {
                 id: index + 1,
                 isemriNo: item.ISEMRI_NO,
+                siparisNo: item.SIP_KOD || '',
                 isemriId: item.ISEMRI_ID,
                 isemriSira: item.ISEMRI_SIRA,
                 malhizKodu: item.MALHIZ_KODU,
