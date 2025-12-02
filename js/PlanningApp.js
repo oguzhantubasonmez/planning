@@ -253,46 +253,7 @@ class PlanningApp {
      * @returns {Promise<Object>} Makine bilgileri
      */
     async checkMachineType(makineAdi) {
-        // 1) Statik Maçahane haritası (üst → alt makineler)
-        const MACA_STATIC_MAP = {
-            'Büyük Maça Makineleri': [
-                '17 Numaralı Maça Makinesi',
-                '18 Numaralı Maça Makinesi'
-            ],
-            'El Maçası':[
-                'El Maçası'
-            ],
-                
-        
-            'Sıcak Maça Makinesi Grubu': [
-                '1 Numaralı Sıcak Maça Makinesi',
-                '2 Numaralı Sıcak Maça Makinesi'
-            ],
-            'Küçük Maça Makineleri': [
-                '6 Numaralı Maça Makinesi','7 Numaralı Maça Makinesi','8 Numaralı Maça Makinesi','9 Numaralı Maça Makinesi','10 Numaralı Maça Makinesi','12 Numaralı Maça Makinesi','13 Numaralı Maça Makinesi'
-            ],
-            'Orta Maça Makineleri': [
-                '11 Numaralı Maça Makinesi','14 Numaralı Maça Makinesi','15 Numaralı Maça Makinesi','16 Numaralı Maça Makinesi'
-            ],
-            'Otomatik Maça Makinesi Grubu': [
-                '19 Numaralı Maça Makinesi','20 Numaralı Maça Makinesi','21 Numaralı Maça Makinesi Protek1','22 Numaralı Maça Makinesi Protek2','23 Numaralı Maça Makinesi Protek3','24 Numaralı Maça Makinesi Protek4','25 Numaralı Maça Makinesi Protek5'
-            ]
-        };
-        const macaKeywords = ['maça','maca'];
-        const isMaca = (name) => macaKeywords.some(k => (name||'').toLowerCase().includes(k));
-        if (isMaca(makineAdi)) {
-            // Üst makine mi?
-            const upper = Object.keys(MACA_STATIC_MAP).find(ust => ust.toLowerCase() === makineAdi.toLowerCase());
-            if (upper) {
-                return { success: true, isUpperMachine: true, upperMachineName: upper, subMachines: MACA_STATIC_MAP[upper].map(m => ({ makAd: m, ustMakAd: upper })) };
-            }
-            // Alt makine ise: üstünü bul
-            const foundUpper = Object.entries(MACA_STATIC_MAP).find(([ust, alts]) => alts.some(m => m.toLowerCase() === makineAdi.toLowerCase()));
-            if (foundUpper) {
-                return { success: true, isUpperMachine: false, machineName: makineAdi, upperMachineName: foundUpper[0] };
-            }
-        }
-        // 2) Statik eşleşme yoksa backend'e düş
+        // Artık tüm makine kontrolleri veritabanından yapılıyor
         try {
             const response = await fetch(`/api/machine/check-upper?makineAdi=${encodeURIComponent(makineAdi)}`);
             const result = await response.json();

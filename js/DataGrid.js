@@ -24,51 +24,9 @@ class DataGrid {
             tarihBitis: ''
         };
         
-        // Bölüm-Üst Makine-Makine Mapping
-        this.machineMapping = {
-            '01.MAÇAHANE': {
-                'Furan Maça': ['Furan El Maçası'],
-                'Sıcak Maça Makinesi Grubu': ['1 Numaralı Sıcak Maça Makinesi', '2 Numaralı Sıcak Maça Makinesi'],
-                'Otomatik Maça Makinesi Grubu': ['25 Numaralı Maça Makinesi Protek4', '24 Numaralı Maça Makinesi Protek3', '23 Numaralı Maça Makinesi Protek2', '22 Numaralı Maça Makinesi Protek1', '20 Numaralı Maça Makinesi', '19 Numaralı Maça Makinesi'],
-                'Orta Maça Makineleri': ['16 Numaralı Maça Makinesi', '15 Numaralı Maça Makinesi', '14 Numaralı Maça Makinesi', '11 Numaralı Maça Makinesi'],
-                'Küçük Maça Makineleri': ['9 Numaralı Maça Makinesi', '8 Numaralı Maça Makinesi', '7 Numaralı Maça Makinesi', '6 Numaralı Maça Makinesi', '13 Numaralı Maça Makinesi', '12 Numaralı Maça Makinesi', '10 Numaralı Maça Makinesi'],
-                'El Maçası': ['El Maçası'],
-                'Büyük Maça Makineleri': ['18 Numaralı Maça Makinesi', '17 Numaralı Maça Makinesi']
-            },
-            '02.KALIPLAMA': {
-                'Yaş Kum Hatları': ['Hunter 2', 'Hunter 1', 'Disa -2 Match 20/24', 'Disa -1 Match 24/28'],
-                'Reçineli Kalıplama Hatları': ['Yer Kalıbı', 'Küçük Omega Hattı', 'Büyük Omega Hattı']
-            },
-            '04.DÖKÜM': {
-                'DÖKÜM POTALARI': ['300 KİLOLUK POTA', '600 KİLOLUK POTA', '1000 KİLOLUK POTA', '2000 KİLOLUK POTA', '12000 KİLOLUK POTA', '3000 KİLOLUK POTA', '500 KİLOLUK POTA', '6000 KİLOLUK POTA']
-            },
-            '05.TAŞLAMA': {
-                'Büyük Parça Taşlama': ['Havalı Canavar 1', 'Havalı Canavar 2', 'Havalı Canavar 3', 'Havalı Canavar 4', 'Havalı Canavar 5', 'Havalı Canavar 6', 'Havalı Canavar 7', 'Havalı Canavar 8', 'Havalı Canavar 9', 'Havalı Canavar 10', 'Havalı Canavar 11', 'Havalı Canavar 12', 'Havalı Canavar 13', 'Havalı Canavar 14', 'Havalı Canavar 15', 'El Taşı'],
-                'Küçük Parça Taşlama': ['Dayama Taşlama Makinesi 1', 'Dayama Taşlama Makinesi 2', 'Dayama Taşlama Makinesi 3', 'Dayama Taşlama Makinesi 4', 'Dayama Taşlama Makinesi 5', 'Dayama Taşlama Makinesi 6'],
-                'Maus CNC Taşlama Makinesi': ['Maus CNC Taşlama Makinesi'],
-                'Denizciler Grubu': ['Denizciler CNC Taşlama Makinesi 1', 'Denizciler CNC Taşlama Makinesi 2'],
-                'Kenan grubu': ['Kenan CNC Taşlama Makinesi 1', 'Kenan CNC Taşlama Makinesi 2'],
-                'Koyama Grubu': ['Koyama CNC Taşlama Makinesi (No:2146)', 'Koyama CNC Taşlama Makinesi (No:2516)', 'Koyama CNC Taşlama Makinesi (No:2559)']
-            },
-            '06.BOYAHANE': {
-                'Toz Boya Hattı': ['Toz Boya Hattı'],
-                'Yaş Boya Hattı': ['Yaş Boya Hattı 1', 'Yaş Boya Hattı 2']
-            },
-            '07.İŞLEME': {
-                'Altor Ahşap İşleme CNC': ['Altor Ahşap İşleme CNC'],
-                'Dik İşlem Merkezi': ['Ajan Dik İşlem CNC 1', 'Ajan Dik İşlem CNC 2', 'Quaser Dik İşlem CNC 1', 'Quaser Dik İşlem CNC 2', 'Quaser Dik İşlem CNC 3', 'Awea Dik İşlem CNC', 'Sunmill JHV1300 CNC Dik İşlem Merkezi', 'Wele VB315 Köprü Tipi İşlem Merkezi', 'Sunmill JHV1500 CNC Dik İlem Merkezi'],
-                'Freze': ['Universal Freze'],
-                'Matkap': ['Sütunlu Matkap 1 (Kılavuz)', 'Sütunlu Matkap 2', 'Sütunlu Matkap 3', 'Sütunlu Matkap 4', 'Sütunlu Matkap 5 (Rayba)', 'Sütunlu Matkap 6 (Rayba)', 'Radyal Matkap'],
-                'Torna': ['Torna'],
-                'CNC Torna': ['Takisawa Yatay CNC Torna', 'Mazak Yatay CNC Torna', 'Doosan Puma V8 300M CNC Dik Torna', 'Doosan Puma VTR1620M CNC Dik Torna', 'Doosan Puma PV9 300M CNC Dik Torna', 'Universal Torna', 'Universal Torna 2000', 'Universal Torna 3000']
-            },
-            '08.PAKETLEME': {
-                'SEVKİYAT': ['SEVKİYAT']
-            },
-            'FASON İŞLEMLER': {
-                'Fason İşlemler': ['Fason İşlemler']
-            }
-        };
+        // Bölüm-Üst Makine-Makine Mapping (veritabanından yüklenecek)
+        this.machineMapping = {};
+        this.machineMappingLoaded = false;
         this.dateRange = {
             startDate: '',
             endDate: ''
@@ -83,7 +41,57 @@ class DataGrid {
         // Sütun sıralaması ayarları
         this.columnOrder = this.loadColumnOrder();
         this.init();
+        // Veritabanından makine mapping'ini yükle
+        this.loadMachineMapping();
     }
+    
+    /**
+     * Veritabanından makine mapping'ini yükler
+     */
+    async loadMachineMapping() {
+        try {
+            const response = await fetch('/api/machines/mapping');
+            const result = await response.json();
+            
+            if (result.success && result.mapping) {
+                this.machineMapping = result.mapping;
+                this.machineMappingLoaded = true;
+                console.log('✅ Makine mapping veritabanından yüklendi:', Object.keys(this.machineMapping).length, 'bölüm');
+                
+                // Mapping yüklendikten sonra filtreleri güncelle
+                if (this.data && this.data.length > 0) {
+                    await this.populateFilters();
+                }
+            } else {
+                console.warn('⚠️ Makine mapping yüklenemedi, statik mapping kullanılacak');
+                this.loadFallbackMachineMapping();
+                
+                // Fallback mapping yüklendikten sonra filtreleri güncelle
+                if (this.data && this.data.length > 0) {
+                    await this.populateFilters();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Makine mapping yükleme hatası:', error);
+            this.loadFallbackMachineMapping();
+            
+            // Fallback mapping yüklendikten sonra filtreleri güncelle
+            if (this.data && this.data.length > 0) {
+                await this.populateFilters();
+            }
+        }
+    }
+    
+    /**
+     * Fallback statik makine mapping'i yükler (hata durumunda)
+     * Artık veritabanından çekildiği için boş mapping döndürüyoruz
+     */
+    loadFallbackMachineMapping() {
+        console.warn('⚠️ Makine mapping API\'den yüklenemedi, boş mapping kullanılıyor');
+        this.machineMapping = {};
+        this.machineMappingLoaded = true;
+    }
+    
     /**
      * Grid'i başlatır
      */
@@ -962,6 +970,13 @@ class DataGrid {
             return;
         }
         
+        // Mapping yüklenene kadar bekle (maksimum 5 saniye)
+        let waitCount = 0;
+        while (!this.machineMappingLoaded && Object.keys(this.machineMapping).length === 0 && waitCount < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waitCount++;
+        }
+        
         // Bölüm filtreleri - data'dan al, mapping'de olanları öncelikli yap
         const dataBolumler = this.data && this.data.length > 0 
             ? [...new Set(this.data.map(item => item.bolumAdi))].filter(b => b).sort()
@@ -1029,9 +1044,31 @@ class DataGrid {
             return;
         }
         
-        // Mapping'den üst makine gruplarını al
-        const ustMakineGruplari = this.machineMapping[selectedBolum];
-        if (!ustMakineGruplari) {
+        // Mapping yüklenene kadar bekle (maksimum 5 saniye)
+        let waitCount = 0;
+        while (!this.machineMappingLoaded && Object.keys(this.machineMapping).length === 0 && waitCount < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waitCount++;
+        }
+        
+        // Mapping'den üst makine gruplarını al (esnek eşleşme ile)
+        let ustMakineGruplari = this.machineMapping[selectedBolum];
+        
+        // Eğer direkt eşleşme yoksa, mapping anahtarlarını kontrol et
+        if (!ustMakineGruplari && selectedBolum) {
+            const normalizedBolumAdi = selectedBolum.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
+            
+            Object.keys(this.machineMapping).forEach(mappingKey => {
+                const normalizedMappingKey = mappingKey.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
+                
+                if (selectedBolum.includes(mappingKey) || mappingKey.includes(selectedBolum) || 
+                    normalizedBolumAdi === normalizedMappingKey) {
+                    ustMakineGruplari = this.machineMapping[mappingKey];
+                }
+            });
+        }
+        
+        if (!ustMakineGruplari || Object.keys(ustMakineGruplari).length === 0) {
             // Mapping'de yoksa boş bırak (kullanıcı direkt makine seçebilir)
             ustMakineFilter.innerHTML = '<option value="">Tümü</option>';
             return;
@@ -1056,10 +1093,32 @@ class DataGrid {
             return;
         }
         
+        // Mapping yüklenene kadar bekle (maksimum 5 saniye)
+        let waitCount = 0;
+        while (!this.machineMappingLoaded && Object.keys(this.machineMapping).length === 0 && waitCount < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waitCount++;
+        }
+        
         let makineler = [];
         
-        // Mapping'den makineleri al
-        const ustMakineGruplari = this.machineMapping[selectedBolum];
+        // Mapping'den makineleri al (esnek eşleşme ile)
+        let ustMakineGruplari = this.machineMapping[selectedBolum];
+        
+        // Eğer direkt eşleşme yoksa, mapping anahtarlarını kontrol et
+        if (!ustMakineGruplari && selectedBolum) {
+            const normalizedBolumAdi = selectedBolum.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
+            
+            Object.keys(this.machineMapping).forEach(mappingKey => {
+                const normalizedMappingKey = mappingKey.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g, '').toLowerCase();
+                
+                if (selectedBolum.includes(mappingKey) || mappingKey.includes(selectedBolum) || 
+                    normalizedBolumAdi === normalizedMappingKey) {
+                    ustMakineGruplari = this.machineMapping[mappingKey];
+                }
+            });
+        }
+        
         if (ustMakineGruplari) {
             if (selectedUstMakineGrubu && selectedUstMakineGrubu !== '') {
                 // Seçili üst makine grubuna ait makineler
@@ -3403,6 +3462,13 @@ class DataGrid {
      * @returns {Object} { machines: Array, groups: Object } - Gruplanmış makineler
      */
     async getMachinesWithGroupsForBolum(bolumAdi, makAd = '') {
+        // Mapping yüklenene kadar bekle (maksimum 5 saniye)
+        let waitCount = 0;
+        while (!this.machineMappingLoaded && Object.keys(this.machineMapping).length === 0 && waitCount < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waitCount++;
+        }
+        
         const bolumMachines = await this.getMachinesForBolum(bolumAdi);
         const machineGroups = {};
         const machines = [];
@@ -9179,14 +9245,14 @@ class DataGrid {
             const isMaca = this.isMacaBolumu({ bolumAdi: item.bolumAdi, makAd: makineAdi });
             
             if (isMaca) {
-                // Makine tipini kontrol et
-                const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-                
-                if (machineInfo.isUpperMachine) {
-                    // Üst makine - alt makineleri göster
-                    await this.openUpperMachineUpdateModal(item, modal, machineInfo);
-                } else {
-                    // Normal makine
+            // Makine tipini kontrol et
+            const machineInfo = await window.planningApp.checkMachineType(makineAdi);
+            
+            if (machineInfo.isUpperMachine) {
+                // Üst makine - alt makineleri göster
+                await this.openUpperMachineUpdateModal(item, modal, machineInfo);
+            } else {
+                // Normal makine
                     await this.openNormalUpdateModal(item, modal);
                 }
             } else {
@@ -9244,8 +9310,8 @@ class DataGrid {
             
             // Default makineyi belirle (veritabanından gelen makine varsa onu seç)
             const defaultMachine = this.getDefaultMachineForItem(item, machineInfo.subMachines);
-            
-            // Makine seçim alanını ekle
+        
+        // Makine seçim alanını ekle
             await this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine, selectedDate);
             
         } catch (error) {
