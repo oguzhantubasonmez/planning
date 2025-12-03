@@ -159,10 +159,47 @@ class PlanningApp {
                 data: data,
                 timestamp: Date.now()
             };
-            localStorage.setItem(this.CACHE_KEY, JSON.stringify(cacheData));
-            console.log('💾 Veri cache\'e kaydedildi');
+            const jsonString = JSON.stringify(cacheData);
+            const sizeInMB = new Blob([jsonString]).size / (1024 * 1024);
+            
+            // LocalStorage genellikle 5-10MB limiti var, 4MB'den büyükse cache'leme
+            if (sizeInMB > 4) {
+                console.warn(`⚠️ Cache boyutu çok büyük (${sizeInMB.toFixed(2)}MB), cache'lenmiyor. LocalStorage limiti aşılmış olabilir.`);
+                // Eski cache'i temizle ve tekrar dene
+                try {
+                    localStorage.removeItem(this.CACHE_KEY);
+                    // Daha küçük bir veri seti cache'le (sadece kritik alanlar)
+                    const minimalData = data.map(item => ({
+                        isemriId: item.isemriId,
+                        isemriNo: item.isemriNo,
+                        durum: item.durum,
+                        planlananMiktar: item.planlananMiktar,
+                        planlananTarih: item.planlananTarih,
+                        breakdowns: item.breakdowns
+                    }));
+                    const minimalCache = {
+                        data: minimalData,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem(this.CACHE_KEY, JSON.stringify(minimalCache));
+                    console.log('💾 Minimal veri cache\'e kaydedildi');
+                } catch (retryError) {
+                    console.error('Minimal cache yazma hatası:', retryError);
+                }
+                return;
+            }
+            
+            localStorage.setItem(this.CACHE_KEY, jsonString);
+            console.log(`💾 Veri cache'e kaydedildi (${sizeInMB.toFixed(2)}MB)`);
         } catch (error) {
             console.error('Cache yazma hatası:', error);
+            // Hata durumunda eski cache'i temizle
+            try {
+                localStorage.removeItem(this.CACHE_KEY);
+                console.log('⚠️ Eski cache temizlendi');
+            } catch (clearError) {
+                console.error('Cache temizleme hatası:', clearError);
+            }
         }
     }
 
@@ -1000,14 +1037,17 @@ class PlanningApp {
                             const plannedSum = (mainRecord.breakdowns || []).filter(b => (b.durum || '').toLowerCase() === 'planlandı')
                                 .reduce((s, b) => s + (b.planlananMiktar || 0), 0);
                             mainRecord.totalPlanned = plannedSum;
-                            const orderQty = (mainRecord.siparisMiktar || mainRecord.planMiktar || 0);
-                            mainRecord.totalWaiting = Math.max(0, orderQty - plannedSum);
+                            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                            const siparisMiktarHesaplanan = mainRecord.siparisMiktarHesaplanan || mainRecord.siparisMiktar || mainRecord.planMiktar || 0;
+                            const sevkMiktari = mainRecord.SEVK_MIKTARI || mainRecord.sevkMiktari || 0;
+                            const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+                            mainRecord.totalWaiting = Math.max(0, bakiyeMiktar - plannedSum);
                             mainRecord.planlananMiktar = plannedSum;
                             
-                            // Durum hesapla
+                            // Durum hesapla (bakiye miktarı ile karşılaştırma)
                             if (plannedSum === 0) {
                                 mainRecord.durum = 'Beklemede';
-                            } else if (plannedSum < orderQty) {
+                            } else if (plannedSum < bakiyeMiktar) {
                                 mainRecord.durum = 'Kısmi Planlandı';
                             } else {
                                 mainRecord.durum = 'Planlandı';

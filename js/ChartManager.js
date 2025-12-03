@@ -1304,8 +1304,8 @@ class ChartManager {
                         // PlanId ile bulunamazsa, isemriNo ile ara
                         if (!segmentElement && isemriNo) {
                             segmentElement = document.querySelector(
-                                `.stacked-segment[data-isemri-no="${isemriNo}"][data-day-index="${dayIndex}"]`
-                            );
+                            `.stacked-segment[data-isemri-no="${isemriNo}"][data-day-index="${dayIndex}"]`
+                        );
                         }
                         
                         if (segmentElement) {
@@ -1322,21 +1322,21 @@ class ChartManager {
                         } else {
                             // Eğer hala bulunamazsa, tüm günlerde isemriNo ile ara (fallback)
                             if (isemriNo) {
-                                const allSegments = document.querySelectorAll(
-                                    `.stacked-segment[data-isemri-no="${isemriNo}"]`
-                                );
-                                if (allSegments.length > 0) {
-                                    const firstSegment = allSegments[0];
-                                    const foundDayIndex = parseInt(firstSegment.dataset.dayIndex);
-                                    const foundSegmentIndex = parseInt(firstSegment.dataset.segmentIndex);
-                                    console.log('Segment farklı günde bulundu:', { 
-                                        isemriNo, 
-                                        expectedDayIndex: dayIndex, 
-                                        foundDayIndex, 
-                                        foundSegmentIndex 
-                                    });
-                                    this.selectSegment(foundDayIndex, foundSegmentIndex, weekString, isemriNo);
-                                } else {
+                            const allSegments = document.querySelectorAll(
+                                `.stacked-segment[data-isemri-no="${isemriNo}"]`
+                            );
+                            if (allSegments.length > 0) {
+                                const firstSegment = allSegments[0];
+                                const foundDayIndex = parseInt(firstSegment.dataset.dayIndex);
+                                const foundSegmentIndex = parseInt(firstSegment.dataset.segmentIndex);
+                                console.log('Segment farklı günde bulundu:', { 
+                                    isemriNo, 
+                                    expectedDayIndex: dayIndex, 
+                                    foundDayIndex, 
+                                    foundSegmentIndex 
+                                });
+                                this.selectSegment(foundDayIndex, foundSegmentIndex, weekString, isemriNo);
+                            } else {
                                     console.warn('Segment bulunamadı:', { 
                                         isemriNo, 
                                         planId: this.breakdownSelection?.planId,
@@ -2343,7 +2343,7 @@ class ChartManager {
             
             // Makine dropdown'ı - üst makine gruplarına göre
             rowHtml += `<td style="padding: 10px 12px; color: #4a5568; font-size: 12px; vertical-align: middle;">`;
-            const currentMakAd = info.makAd && info.makAd !== '-' ? info.makAd : '';
+                const currentMakAd = info.makAd && info.makAd !== '-' ? info.makAd : '';
             
             if (info.bolumAdi && info.bolumAdi !== '-' && window.dataGrid) {
                 try {
@@ -2355,11 +2355,11 @@ class ChartManager {
                     if (machines.length > 0) {
                         rowHtml += `<select class="machine-select" data-plan-id="${info.planId}" data-isemri-id="${info.isemriId || ''}" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px; background-color: white; cursor: pointer;">`;
                         
-                        // Mevcut makine listede yoksa ekle
+                // Mevcut makine listede yoksa ekle
                         const allMachineNames = machines.map(m => m.makAd);
                         if (currentMakAd && !allMachineNames.includes(currentMakAd)) {
                             rowHtml += `<option value="${currentMakAd}" selected>${currentMakAd}</option>`;
-                        }
+                }
                         
                         // Optgroup'lar ile dropdown oluştur
                         Object.keys(machineGroups).sort().forEach(groupName => {
@@ -2367,18 +2367,18 @@ class ChartManager {
                             machineGroups[groupName].forEach(machineName => {
                                 const selected = machineName === currentMakAd ? 'selected' : '';
                                 rowHtml += `<option value="${machineName}" ${selected}>${machineName}</option>`;
-                            });
+                });
                             rowHtml += `</optgroup>`;
                         });
                         
                         rowHtml += `</select>`;
-                    } else {
+            } else {
                         rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
                     }
                 } catch (error) {
                     console.error('Makine dropdown oluşturma hatası:', error);
                     rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
-                }
+            }
             } else {
                 rowHtml += `<span style="color: #999;">${currentMakAd || '-'}</span>`;
             }
@@ -2490,7 +2490,7 @@ class ChartManager {
                 planIds.forEach(planId => {
                     const targetDate = dateChanges[planId];
                     if (targetDate) {
-                        window.dataGrid.updatePlanDateInCache(planId, targetDate);
+                    window.dataGrid.updatePlanDateInCache(planId, targetDate);
                     }
                 });
             }

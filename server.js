@@ -156,24 +156,24 @@ app.post('/api/planning', async (req, res) => {
         let targetMachine = originalMakAd;
         let targetMakId = originalMakId;
         // Tüm aşamalar için makine seçimine izin ver
-        if (selectedMachine) {
+            if (selectedMachine) {
             targetMachine = selectedMachine;
             console.log('✅ Seçilen makine:', selectedMachine);
-            // Seçilen makine için MAK_ID'yi al
-            if (selectedMachine !== originalMakAd) {
-                const makIdQuery = `
-                    WITH ISEMRI_FILTERED AS (
-                        SELECT * 
-                        FROM ERPURT.T_URT_ISEMRI 
-                        WHERE FABRIKA_KOD = 120 AND DURUMU = 1
-                    )
-                    SELECT DISTINCT MAK_ID
-                    FROM ERPREADONLY.V_ISEMRI_DETAY 
-                    WHERE ISEMRI_ID = :isemriId AND MAK_AD = :selectedMachine
-                `;
-                const makIdResult = await connection.execute(makIdQuery, { isemriId, selectedMachine });
-                if (makIdResult.rows.length > 0 && makIdResult.rows[0][0]) {
-                    targetMakId = makIdResult.rows[0][0];
+                // Seçilen makine için MAK_ID'yi al
+                if (selectedMachine !== originalMakAd) {
+                    const makIdQuery = `
+                        WITH ISEMRI_FILTERED AS (
+                            SELECT * 
+                            FROM ERPURT.T_URT_ISEMRI 
+                            WHERE FABRIKA_KOD = 120 AND DURUMU = 1
+                        )
+                        SELECT DISTINCT MAK_ID
+                        FROM ERPREADONLY.V_ISEMRI_DETAY 
+                        WHERE ISEMRI_ID = :isemriId AND MAK_AD = :selectedMachine
+                    `;
+                    const makIdResult = await connection.execute(makIdQuery, { isemriId, selectedMachine });
+                    if (makIdResult.rows.length > 0 && makIdResult.rows[0][0]) {
+                        targetMakId = makIdResult.rows[0][0];
                 }
             }
         } else {
@@ -2430,11 +2430,11 @@ app.get('/api/machine/check-upper', async (req, res) => {
                 });
             } else {
                 // Direkt makine (ne üst ne alt)
-                res.json({
-                    success: true,
-                    isUpperMachine: false,
-                    machineName: makineAdi
-                });
+            res.json({
+                success: true,
+                isUpperMachine: false,
+                machineName: makineAdi
+            });
             }
         }
         
@@ -3214,13 +3214,16 @@ app.get('/api/data', async (req, res) => {
             }
             
             // Sipariş miktarını hesapla (ana kayıttan) - Sipariş Miktar (Adet) kullan
+            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
             const siparisMiktar = item.SIPARIS_MIKTAR || 0;
-            planningInfo.totalWaiting = Math.max(0, siparisMiktar - planningInfo.totalPlanned);
+            const sevkMiktari = item.SEVK_MIKTARI || 0;
+            const bakiyeMiktar = Math.max(0, siparisMiktar - sevkMiktari);
+            planningInfo.totalWaiting = Math.max(0, bakiyeMiktar - planningInfo.totalPlanned);
             
-            // Durumu belirle
+            // Durumu belirle (bakiye miktarı ile karşılaştırma)
             if (planningInfo.totalPlanned === 0) {
                 planningInfo.status = 'Beklemede';
-            } else if (planningInfo.totalPlanned < siparisMiktar) {
+            } else if (planningInfo.totalPlanned < bakiyeMiktar) {
                 planningInfo.status = 'Kısmi Planlandı';
             } else {
                 planningInfo.status = 'Planlandı';

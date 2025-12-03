@@ -1414,11 +1414,14 @@ class DataGrid {
             gridBody.appendChild(mainRow);
             
             // Kırılım satırlarını ekle (planlanan breakdown'lar veya bekleyen miktar varsa)
-            const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+            const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+            const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+            const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
             const totalPlanned = (item.breakdowns || [])
                 .filter(b => b.durum === 'Planlandı')
                 .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-            const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+            const totalWaiting = Math.max(0, bakiyeMiktar - totalPlanned);
             
             if (hasBreakdowns || totalWaiting > 0) {
                 this.appendBreakdownRows(gridBody, item);
@@ -1499,7 +1502,10 @@ class DataGrid {
             return Number(it?.planlananMiktar) || 0;
         };
         const totalPlannedComputed = computePlannedSum(item);
-        const orderQtyComputed = Number(item.siparisMiktarHesaplanan || 0);
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktarComputed = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
         const totalRealizedComputed = Number(item.gercekMiktar || 0);
         
         // Tamamlanma kontrolü: Gerçekleşme miktarı planlanan miktara eşit veya büyük mü?
@@ -1520,9 +1526,9 @@ class DataGrid {
             computedStatus = 'Tamamlandı';
         } else if (isGecikmeli) {
             computedStatus = 'Gecikti';
-        } else if (totalPlannedComputed > 0 && orderQtyComputed > 0) {
-            computedStatus = totalPlannedComputed < orderQtyComputed ? 'Kısmi Planlandı' : 'Planlandı';
-        } else if (totalPlannedComputed > 0 && orderQtyComputed === 0) {
+        } else if (totalPlannedComputed > 0 && bakiyeMiktarComputed > 0) {
+            computedStatus = totalPlannedComputed < bakiyeMiktarComputed ? 'Kısmi Planlandı' : 'Planlandı';
+        } else if (totalPlannedComputed > 0 && bakiyeMiktarComputed === 0) {
             computedStatus = 'Planlandı';
         }
         
@@ -1552,7 +1558,7 @@ class DataGrid {
         }
             
         // Ek koruma: miktarlardan kısmi planlama tespiti (gecikmeli veya tamamlanmış değilse)
-        if (!isGecikmeli && !isTamamlandi && orderQtyComputed > 0 && totalPlannedComputed > 0 && totalPlannedComputed < orderQtyComputed) {
+        if (!isGecikmeli && !isTamamlandi && bakiyeMiktarComputed > 0 && totalPlannedComputed > 0 && totalPlannedComputed < bakiyeMiktarComputed) {
             mainRow.classList.add('planned');
             mainRow.classList.add('kısmi-planlandı');
             mainRow.classList.add('kismi-planlandi');
@@ -1565,9 +1571,12 @@ class DataGrid {
         }
         
         // Ağırlık ve süre hesaplama: Planlanan miktar varsa orantılı, yoksa orijinal değerler
-        const siparisMiktar = item.siparisMiktarHesaplanan || 1;
-        const orijinalAgirlik = item.degerKk || 0; // Sipariş miktarı için orijinal ağırlık
-        const orijinalSure = item.degerDk || 0; // Sipariş miktarı için orijinal süre
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı) - createRow için
+        const rowSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const rowSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const rowBakiyeMiktar = Math.max(0, rowSiparisMiktarHesaplanan - rowSevkMiktari) || 1;
+        const orijinalAgirlik = item.degerKk || 0; // Bakiye miktarı için orijinal ağırlık
+        const orijinalSure = item.degerDk || 0; // Bakiye miktarı için orijinal süre
         
         // Planlanan miktarı belirle: Kırılım varsa toplam planlanan, yoksa direkt planlanan miktar
         // Eğer kırılım yoksa ve item.planlananMiktar varsa onu kullan (ana satır planlanmışsa)
@@ -1576,11 +1585,11 @@ class DataGrid {
             : (item.planlananMiktar || 0);
         
         let gosterilecekAgirlik, gosterilecekSure;
-        if (planlananMiktar > 0 && siparisMiktar > 0) {
+        if (planlananMiktar > 0 && rowBakiyeMiktar > 0) {
             // Planlanan miktar varsa: birim değerleri hesapla ve planlanan miktarla çarp
             // Bu şekilde eski kayıtlar için de doğru çalışır (planlanan miktar sipariş miktarından farklı olsa bile)
-            const birimAgirlik = orijinalAgirlik / siparisMiktar; // Birim ağırlık (KG/adet)
-            const birimSure = orijinalSure / siparisMiktar; // Birim süre (saat/adet)
+            const birimAgirlik = orijinalAgirlik / rowBakiyeMiktar; // Birim ağırlık (KG/adet)
+            const birimSure = orijinalSure / rowBakiyeMiktar; // Birim süre (saat/adet)
             
             gosterilecekAgirlik = birimAgirlik * planlananMiktar;
             gosterilecekSure = birimSure * planlananMiktar;
@@ -1598,8 +1607,8 @@ class DataGrid {
             const machineInfo = !hasBreakdowns && this.isMacaBolumu(item) && item.selectedMachine ? `<div class="machine-info">${item.selectedMachine}</div>` : '';
             
             // Brüt ağırlık hesaplama
-            const birimBrutAgirlik = item.brutAgirlik ? (item.brutAgirlik / (item.degerAdet || item.planMiktar || 1)) : 0;
-            const brutAgirlik = planlananMiktar > 0 && siparisMiktar > 0 
+            const birimBrutAgirlik = item.brutAgirlik ? (item.brutAgirlik / (rowBakiyeMiktar || 1)) : 0;
+            const brutAgirlik = planlananMiktar > 0 && rowBakiyeMiktar > 0 
                 ? (birimBrutAgirlik * planlananMiktar) 
                 : (item.brutAgirlik || 0);
             const brutAgirlikText = brutAgirlik > 0 ? brutAgirlik.toFixed(1) : '-';
@@ -1752,11 +1761,14 @@ class DataGrid {
         }
         
         // Bekleyen kırılımı dinamik olarak hesapla ve göster (sadece bekleyen miktar > 0 ise)
-        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const appendSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const appendSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const appendBakiyeMiktar = Math.max(0, appendSiparisMiktarHesaplanan - appendSevkMiktari);
         const totalPlanned = (item.breakdowns || [])
             .filter(b => b.durum === 'Planlandı')
             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        const totalWaiting = Math.max(0, appendBakiyeMiktar - totalPlanned);
         
         // Bekleyen miktar varsa bekleyen kırılımı göster
         if (totalWaiting > 0) {
@@ -1843,11 +1855,14 @@ class DataGrid {
         row.replaceWith(newRow);
         
         // Yeni breakdown satırlarını ana satırın hemen sonrasına ekle
-        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const updateRowSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const updateRowSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const updateRowBakiyeMiktar = Math.max(0, updateRowSiparisMiktarHesaplanan - updateRowSevkMiktari);
         const totalPlanned = (item.breakdowns || [])
             .filter(b => b.durum === 'Planlandı')
             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        const totalWaiting = Math.max(0, updateRowBakiyeMiktar - totalPlanned);
         const hasBreakdowns = (item.breakdowns && item.breakdowns.length > 0) || totalWaiting > 0;
         
         if (hasBreakdowns) {
@@ -1914,11 +1929,14 @@ class DataGrid {
         }
         
         // Bekleyen kırılımı dinamik olarak hesapla ve göster (sadece bekleyen miktar > 0 ise)
-        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const appendRowSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const appendRowSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const appendRowBakiyeMiktar = Math.max(0, appendRowSiparisMiktarHesaplanan - appendRowSevkMiktari);
         const totalPlanned = (item.breakdowns || [])
             .filter(b => b.durum === 'Planlandı')
             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        const totalWaiting = Math.max(0, appendRowBakiyeMiktar - totalPlanned);
         
         // Bekleyen miktar varsa bekleyen kırılımı göster
         if (totalWaiting > 0) {
@@ -1970,32 +1988,35 @@ class DataGrid {
         breakdownRow.appendChild(checkboxTd);
         
         // Kırılıma göre ağırlık ve süre hesapları
-        // Birim değerleri hesaplamak için sipariş miktarını kullan (planlanan miktar değil)
-        const siparisMiktar = item.siparisMiktarHesaplanan || 1;
-        const birimAgirlik = (item.degerKk || 0) / siparisMiktar; // Birim ağırlık (KG/adet)
-        const birimBrutAgirlik = (item.brutAgirlik || 0) / siparisMiktar; // Birim brüt ağırlık (KG/adet)
-        const birimSure = (item.degerDk || 0) / siparisMiktar; // Birim süre (saat/adet)
+        // Birim değerleri hesaplamak için bakiye miktarını kullan (planlanan miktar değil)
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const breakdownRowSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const breakdownRowSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const breakdownRowBakiyeMiktar = Math.max(0, breakdownRowSiparisMiktarHesaplanan - breakdownRowSevkMiktari) || 1;
+        const birimAgirlik = (item.degerKk || 0) / breakdownRowBakiyeMiktar; // Birim ağırlık (KG/adet)
+        const birimBrutAgirlik = (item.brutAgirlik || 0) / breakdownRowBakiyeMiktar; // Birim brüt ağırlık (KG/adet)
+        const birimSure = (item.degerDk || 0) / breakdownRowBakiyeMiktar; // Birim süre (saat/adet)
         
         // Bekleyen kırılım için planlanan miktarı dinamik olarak hesapla
         let breakdownPlanlananMiktar = breakdown.planlananMiktar || 0;
         if (breakdown.durum === 'Beklemede' && breakdown.planId === null) {
-            // Bekleyen kırılım: sipariş miktarı - toplam planlanan
+            // Bekleyen kırılım: bakiye miktarı - toplam planlanan
             const totalPlanned = (item.breakdowns || [])
                 .filter(b => b.durum === 'Planlandı')
                 .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-            breakdownPlanlananMiktar = Math.max(0, siparisMiktar - totalPlanned);
+            breakdownPlanlananMiktar = Math.max(0, breakdownRowBakiyeMiktar - totalPlanned);
         }
         
         const brkKg = breakdown.durum === 'Planlandı' ? (birimAgirlik * (breakdown.planlananMiktar || 0)) : 0;
         const brkBrutKg = breakdown.durum === 'Planlandı' ? (birimBrutAgirlik * (breakdown.planlananMiktar || 0)) : 0;
         const brkDk = breakdown.durum === 'Planlandı' ? (birimSure * (breakdown.planlananMiktar || 0)) : 0;
         
-        // Sipariş miktarı, sevk miktarı ve bakiye miktarı hesaplamaları
+        // Sipariş miktarı, sevk miktarı ve bakiye miktarı hesaplamaları - createBreakdownCellContent için
         const planMiktar = Math.ceil(item.degerAdet || item.planMiktar || 0);
         const figurSayisi = item.figurSayisi || 0;
-        const siparisMiktarHesaplanan = planMiktar * figurSayisi;
-        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
-        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const cellSiparisMiktarHesaplanan = planMiktar * figurSayisi;
+        const cellSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const cellBakiyeMiktar = Math.max(0, cellSiparisMiktarHesaplanan - cellSevkMiktari);
         
         // Kırılım satırı için hücre içeriği oluşturma fonksiyonu
         const createBreakdownCellContent = (columnKey) => {
@@ -2028,11 +2049,11 @@ class DataGrid {
                 case 'figurSayisi':
                     return item.figurSayisi || 0;
                 case 'siparisMiktarHesaplanan':
-                    return siparisMiktarHesaplanan;
+                    return cellSiparisMiktarHesaplanan;
                 case 'sevkMiktari':
-                    return sevkMiktari;
+                    return cellSevkMiktari;
                 case 'bakiyeMiktar':
-                    return bakiyeMiktar;
+                    return cellBakiyeMiktar;
                 case 'gercekMiktar':
                     return breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0);
                     case 'planlananMiktar':
@@ -2043,8 +2064,11 @@ class DataGrid {
                             const totalPlanned = (item.breakdowns || [])
                                 .filter(b => b.durum === 'Planlandı')
                                 .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-                            const siparisMiktar = item.siparisMiktarHesaplanan || 0;
-                            return Math.max(0, siparisMiktar - totalPlanned);
+                            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                            const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                            const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                            const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+                            return Math.max(0, bakiyeMiktar - totalPlanned);
                         }
                         return '';
                 case 'planlananTarih':
@@ -2204,8 +2228,11 @@ class DataGrid {
                     const totalPlanned = (item.breakdowns || [])
                         .filter(b => b.durum === 'Planlandı')
                         .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-                    const siparisMiktar = item.siparisMiktarHesaplanan || 0;
-                    return Math.max(0, siparisMiktar - totalPlanned);
+                    // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                    const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                    const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                    const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+                    return Math.max(0, bakiyeMiktar - totalPlanned);
                 })() : breakdown.planlananMiktar,
                 planlananTarih: breakdown.planTarihi,
                 durum: breakdown.durum
@@ -2308,12 +2335,15 @@ class DataGrid {
                             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
                         return totalPlanned || 0;
                     } else {
-                        // Bekleyen miktar: sipariş miktarı - toplam planlanan
-                        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+                        // Bekleyen miktar: bakiye miktarı - toplam planlanan
+                        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                        const cellSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                        const cellSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                        const cellBakiyeMiktar = Math.max(0, cellSiparisMiktarHesaplanan - cellSevkMiktari);
                         const totalPlanned = (item.breakdowns || [])
                             .filter(b => b.durum === 'Planlandı')
                             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-                        return Math.max(0, siparisMiktar - totalPlanned);
+                        return Math.max(0, cellBakiyeMiktar - totalPlanned);
                     }
                 case 'planlananTarih':
                     return isPlanned && item.planlananTarih ? new Date(item.planlananTarih).toLocaleDateString('tr-TR') : '';
@@ -3351,11 +3381,15 @@ class DataGrid {
         const planningTarih = modal.querySelector('#planningTarih');
         if (planningTarih) planningTarih.value = defaultTarih;
         
-        const siparisMiktarDefault = Math.ceil(Number(item.siparisMiktarHesaplanan || 0));
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const bakiyeMiktarDefault = Math.ceil(Number(bakiyeMiktar));
         const providedBreakdownAmount = (typeof item.planlananMiktar === 'number') ? item.planlananMiktar : Number(item.planlananMiktar);
         const defaultAmount = (providedBreakdownAmount && providedBreakdownAmount > 0)
             ? providedBreakdownAmount
-            : siparisMiktarDefault;
+            : bakiyeMiktarDefault;
         
         const planningMiktar = modal.querySelector('#planningMiktar');
         if (planningMiktar) planningMiktar.value = isNaN(defaultAmount) ? '' : defaultAmount;
@@ -3393,45 +3427,60 @@ class DataGrid {
         
         try {
             let machines = [];
+            let machineGroups = {};
             const defaultMachine = item.selectedMachine || item.makAd || '';
             
-            // Maça bölümü kontrolü
-            const isMaca = this.isMacaBolumu(item);
-            if (isMaca && window.planningApp) {
-                // Maça için üst makine kontrolü yap
-                const machineInfo = await window.planningApp.checkMachineType(item.makAd || '');
-                if (machineInfo && machineInfo.isUpperMachine && machineInfo.subMachines) {
-                    // Alt makineleri kullan
-                    machines = machineInfo.subMachines.map(sub => sub.makAd);
-                } else {
-                    // Direkt makine veya alt makine
-                    machines = [item.makAd].filter(Boolean);
+            // Tüm bölümler için (maça dahil) bölüm makinelerini üst makine gruplarına göre al
+            if (item.bolumAdi) {
+                // makAd parametresini boş göndererek TÜM bölüm makinelerini göster
+                const result = await this.getMachinesWithGroupsForBolum(item.bolumAdi, '');
+                machines = result.machines;
+                machineGroups = result.groups;
+                
+                // ÖNEMLİ: Eğer item.makAd mapping'de yoksa ama veritabanında varsa, onu da ekle
+                if (item.makAd && item.makAd.trim()) {
+                    const allMachineNames = machines.map(m => m.makAd);
+                    if (!allMachineNames.includes(item.makAd)) {
+                        // Makineyi "Makineler" grubuna ekle
+                        if (!machineGroups['Makineler']) {
+                            machineGroups['Makineler'] = [];
+                        }
+                        if (!machineGroups['Makineler'].includes(item.makAd)) {
+                            machineGroups['Makineler'].push(item.makAd);
+                            machines.push({ makAd: item.makAd, group: 'Makineler' });
+                        }
+                    }
                 }
-            } else {
-                // Diğer bölümler için bölüm makinelerini al
-                if (item.bolumAdi && window.dataGrid) {
-                    const bolumMachines = await this.getMachinesForBolum(item.bolumAdi);
-                    machines = bolumMachines.length > 0 ? bolumMachines : [item.makAd].filter(Boolean);
-                } else {
-                    machines = [item.makAd].filter(Boolean);
-                }
+            } else if (item.makAd) {
+                // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
+                machines = [{ makAd: item.makAd, group: 'Makineler' }];
+                machineGroups['Makineler'] = [item.makAd];
             }
             
-            // Dropdown'ı doldur
+            // Dropdown'ı optgroup'larla doldur
             machineSelect.innerHTML = '';
-            machines.forEach(machine => {
-                const option = document.createElement('option');
-                option.value = machine;
-                option.textContent = machine;
-                if (machine === defaultMachine) {
-                    option.selected = true;
-                }
-                machineSelect.appendChild(option);
-            });
-            
-            // Eğer hiç makine yoksa
             if (machines.length === 0) {
                 machineSelect.innerHTML = '<option value="">Makine bulunamadı</option>';
+            } else {
+                // Optgroup'lar ile dropdown oluştur
+                Object.keys(machineGroups).sort().forEach(groupName => {
+                    // Üst makine grubu başlığı (optgroup - seçilemez)
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupName;
+                    
+                    // Bu grubun altındaki makineler
+                    machineGroups[groupName].forEach(machineName => {
+                        const option = document.createElement('option');
+                        option.value = machineName;
+                        option.textContent = machineName;
+                        if (machineName === defaultMachine) {
+                            option.selected = true;
+                        }
+                        optgroup.appendChild(option);
+                    });
+                    
+                    machineSelect.appendChild(optgroup);
+                });
             }
         } catch (error) {
             console.error('Makine dropdown doldurma hatası:', error);
@@ -3494,8 +3543,8 @@ class DataGrid {
             });
         }
         
-        // Maça bölümü için özel durum: Mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
-        // Diğer bölümler için: Sadece veritabanında olan makineleri göster
+        // TÜM bölümler için: Mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
+        // Artık maça bölümü özel değil, tüm bölümler aynı mantıkla çalışıyor
         const isMacaBolumu = bolumAdi && (bolumAdi.includes('MAÇA') || bolumAdi.includes('Maça') || bolumAdi.includes('maça') || 
                                           bolumAdi.includes('MAÇAHANE') || bolumAdi.includes('Maçahane') || bolumAdi.includes('maçahane'));
         
@@ -3511,24 +3560,53 @@ class DataGrid {
         
         if (bolumMapping) {
             // Mapping'deki tüm üst makine gruplarını ve alt makinelerini topla
+            // TÜM bölümler için (maça dahil) mapping'deki TÜM makineleri göster
             Object.keys(bolumMapping).forEach(ustMakineGrubu => {
                 const altMakineler = bolumMapping[ustMakineGrubu] || [];
                 
-                let gercekMakineler;
-                if (isMacaBolumu) {
-                    // Maça bölümü: Mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
-                    gercekMakineler = altMakineler;
-                } else {
-                    // Diğer bölümler: Sadece veritabanında olan makineleri göster
-                    gercekMakineler = altMakineler.filter(m => bolumMachines.includes(m));
-                }
+                // Tüm bölümler için mapping'deki TÜM makineleri göster (veritabanında olsun ya da olmasın)
+                const gercekMakineler = altMakineler;
                 
-                // Her zaman grubu ekle, makineler olsun ya da olmasın (maça için)
-                if (isMacaBolumu || gercekMakineler.length > 0) {
+                // Her zaman grubu ekle
+                if (gercekMakineler.length > 0) {
                     machineGroups[ustMakineGrubu] = gercekMakineler;
                     machines.push(...gercekMakineler.map(m => ({ makAd: m, group: ustMakineGrubu })));
                 }
             });
+            
+            // ÖNEMLİ: Eğer makAd verildiyse ve bu makine mapping'de yoksa, onu da ekle
+            if (makAd && makAd.trim()) {
+                const allMachineNames = machines.map(m => m.makAd);
+                // Makine listede yoksa ve veritabanında varsa veya maça bölümündeyse ekle
+                if (!allMachineNames.includes(makAd)) {
+                    // Makineyi uygun bir gruba ekle veya yeni grup oluştur
+                    let addedToGroup = false;
+                    
+                    // Önce mevcut gruplarda benzer isimli bir grup var mı kontrol et
+                    Object.keys(machineGroups).forEach(groupName => {
+                        if (makAd.includes(groupName) || groupName.includes(makAd)) {
+                            if (!machineGroups[groupName].includes(makAd)) {
+                                machineGroups[groupName].push(makAd);
+                                machines.push({ makAd: makAd, group: groupName });
+                                addedToGroup = true;
+                            }
+                        }
+                    });
+                    
+                    // Uygun grup bulunamadıysa, "Makineler" grubuna ekle veya yeni grup oluştur
+                    if (!addedToGroup) {
+                        if (isMacaBolumu || bolumMachines.includes(makAd)) {
+                            if (!machineGroups['Makineler']) {
+                                machineGroups['Makineler'] = [];
+                            }
+                            if (!machineGroups['Makineler'].includes(makAd)) {
+                                machineGroups['Makineler'].push(makAd);
+                                machines.push({ makAd: makAd, group: 'Makineler' });
+                            }
+                        }
+                    }
+                }
+            }
             
             console.log('✅ Mapping bulundu, gruplar oluşturuldu:', {
                 groups: Object.keys(machineGroups),
@@ -3617,9 +3695,25 @@ class DataGrid {
                 
                 if (orderBolumAdi) {
                     // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(orderBolumAdi, orderMakAd);
+                    // makAd parametresini boş göndererek TÜM bölüm makinelerini göster
+                    const result = await this.getMachinesWithGroupsForBolum(orderBolumAdi, '');
                     machines = result.machines;
                     machineGroups = result.groups;
+                    
+                    // ÖNEMLİ: Eğer orderMakAd mapping'de yoksa ama veritabanında varsa, onu da ekle
+                    if (orderMakAd && orderMakAd.trim()) {
+                        const allMachineNames = machines.map(m => m.makAd);
+                        if (!allMachineNames.includes(orderMakAd)) {
+                            // Makineyi "Makineler" grubuna ekle
+                            if (!machineGroups['Makineler']) {
+                                machineGroups['Makineler'] = [];
+                            }
+                            if (!machineGroups['Makineler'].includes(orderMakAd)) {
+                                machineGroups['Makineler'].push(orderMakAd);
+                                machines.push({ makAd: orderMakAd, group: 'Makineler' });
+                            }
+                        }
+                    }
                 } else {
                     // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
                     if (orderMakAd) {
@@ -3684,9 +3778,25 @@ class DataGrid {
                 
                 if (bolumAdi) {
                     // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, stage.makAd || '');
+                    // makAd parametresini boş göndererek TÜM bölüm makinelerini göster
+                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, '');
                     machines = result.machines;
                     machineGroups = result.groups;
+                    
+                    // ÖNEMLİ: Eğer stage.makAd mapping'de yoksa ama veritabanında varsa, onu da ekle
+                    if (stage.makAd && stage.makAd.trim()) {
+                        const allMachineNames = machines.map(m => m.makAd);
+                        if (!allMachineNames.includes(stage.makAd)) {
+                            // Makineyi "Makineler" grubuna ekle
+                            if (!machineGroups['Makineler']) {
+                                machineGroups['Makineler'] = [];
+                            }
+                            if (!machineGroups['Makineler'].includes(stage.makAd)) {
+                                machineGroups['Makineler'].push(stage.makAd);
+                                machines.push({ makAd: stage.makAd, group: 'Makineler' });
+                            }
+                        }
+                    }
                 } else if (stage.makAd) {
                     // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
                     machines = [{ makAd: stage.makAd, group: 'Makineler' }];
@@ -3763,15 +3873,26 @@ class DataGrid {
         }
         
         // Miktar alanını doldur
-        const siparisMiktarDefault = Math.ceil(Number(item.siparisMiktarHesaplanan || 0));
-        const providedBreakdownAmount = (typeof item.planlananMiktar === 'number') ? item.planlananMiktar : Number(item.planlananMiktar);
-        const defaultAmount = (providedBreakdownAmount && providedBreakdownAmount > 0)
-            ? providedBreakdownAmount
-            : siparisMiktarDefault;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const bakiyeMiktarDefault = Math.ceil(Number(bakiyeMiktar));
+        // Kuyruk planlamada her zaman bakiye miktarını kullan (breakdown miktarı yerine)
+        const defaultAmount = bakiyeMiktarDefault;
+        
+        console.log('🔍 Kuyruk Planlama - Miktar Hesaplama:', {
+            siparisMiktarHesaplanan,
+            sevkMiktari,
+            bakiyeMiktar,
+            bakiyeMiktarDefault,
+            defaultAmount
+        });
         
         const queuePlanningMiktar = modal.querySelector('#queuePlanningMiktar');
         if (queuePlanningMiktar) {
             queuePlanningMiktar.value = isNaN(defaultAmount) ? '' : defaultAmount;
+            console.log('✅ Kuyruk Planlama Miktar Input Set Edildi:', queuePlanningMiktar.value);
             
             // Önceki event listener'ları kaldır
             const newMiktarInput = queuePlanningMiktar.cloneNode(true);
@@ -3889,7 +4010,22 @@ class DataGrid {
         const aciklamaInput = summaryModal.querySelector('#queuePlanInputAciklama');
         
         if (miktarInput) {
-            miktarInput.value = item.siparisMiktarHesaplanan || '';
+            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+            const openQueueSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+            const openQueueSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+            const openQueueBakiyeMiktar = Math.max(0, openQueueSiparisMiktarHesaplanan - openQueueSevkMiktari);
+            const openQueueBakiyeMiktarDefault = Math.ceil(Number(openQueueBakiyeMiktar));
+            
+            console.log('🔍 Kuyruk Planlama Modal Açılıyor - Miktar Hesaplama:', {
+                siparisMiktarHesaplanan: openQueueSiparisMiktarHesaplanan,
+                sevkMiktari: openQueueSevkMiktari,
+                bakiyeMiktar: openQueueBakiyeMiktar,
+                bakiyeMiktarDefault: openQueueBakiyeMiktarDefault,
+                item: item
+            });
+            
+            miktarInput.value = openQueueBakiyeMiktarDefault > 0 ? openQueueBakiyeMiktarDefault : '';
+            console.log('✅ Kuyruk Planlama Özet Modal Miktar Input Set Edildi:', miktarInput.value);
             // Miktar değiştiğinde özeti güncelle
             miktarInput.removeEventListener('input', this.queuePlanInputHandler);
             this.queuePlanInputHandler = () => {
@@ -3924,6 +4060,14 @@ class DataGrid {
         const toplamAgirlikSpan = summaryModal.querySelector('#summaryToplamAgirlik');
         const toplamSureSpan = summaryModal.querySelector('#summaryToplamSure');
         
+        // Eğer miktar ve tarih varsa, otomatik olarak özeti yükle
+        if (miktarInput && miktarInput.value && tarihInput && tarihInput.value) {
+            // Kısa bir gecikme ile özeti yükle (DOM güncellemesi için)
+            setTimeout(() => {
+                this.loadQueuePlanSummary();
+            }, 100);
+        }
+        
         if (isemriNoSpan) isemriNoSpan.textContent = item.isemriNo || '-';
         if (toplamAgirlikSpan) toplamAgirlikSpan.textContent = '-';
         if (toplamSureSpan) toplamSureSpan.textContent = '-';
@@ -3950,19 +4094,48 @@ class DataGrid {
         const miktarInput = summaryModal.querySelector('#queuePlanInputMiktar');
         const tarihInput = summaryModal.querySelector('#queuePlanInputBaslangicTarih');
         
-        if (!miktarInput || !miktarInput.value) {
-            // Miktar yoksa özeti temizle
-            const stagesList = summaryModal.querySelector('#queuePlanStagesList');
-            const toplamAgirlikSpan = summaryModal.querySelector('#summaryToplamAgirlik');
-            const toplamSureSpan = summaryModal.querySelector('#summaryToplamSure');
-            
-            if (toplamAgirlikSpan) toplamAgirlikSpan.textContent = '-';
-            if (toplamSureSpan) toplamSureSpan.textContent = '-';
-            
-            if (stagesList) {
-                stagesList.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Lütfen planlanan miktar girin</p>';
-            }
+        if (!miktarInput) {
             return;
+        }
+        
+        // Eğer miktar input'u boşsa, bakiye miktarını hesapla ve set et
+        if (!miktarInput.value || miktarInput.value === '0') {
+            if (this.queuePlanningItem) {
+                // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                const loadQueueSiparisMiktarHesaplanan = this.queuePlanningItem.siparisMiktarHesaplanan || 0;
+                const loadQueueSevkMiktari = this.queuePlanningItem.SEVK_MIKTARI || this.queuePlanningItem.sevkMiktari || 0;
+                const loadQueueBakiyeMiktar = Math.max(0, loadQueueSiparisMiktarHesaplanan - loadQueueSevkMiktari);
+                const loadQueueBakiyeMiktarDefault = Math.ceil(Number(loadQueueBakiyeMiktar));
+                if (loadQueueBakiyeMiktarDefault > 0) {
+                    miktarInput.value = loadQueueBakiyeMiktarDefault;
+                } else {
+                    // Miktar yoksa özeti temizle
+                    const stagesList = summaryModal.querySelector('#queuePlanStagesList');
+                    const toplamAgirlikSpan = summaryModal.querySelector('#summaryToplamAgirlik');
+                    const toplamSureSpan = summaryModal.querySelector('#summaryToplamSure');
+                    
+                    if (toplamAgirlikSpan) toplamAgirlikSpan.textContent = '-';
+                    if (toplamSureSpan) toplamSureSpan.textContent = '-';
+                    
+                    if (stagesList) {
+                        stagesList.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Lütfen planlanan miktar girin</p>';
+                    }
+                    return;
+                }
+            } else {
+                // Miktar yoksa özeti temizle
+                const stagesList = summaryModal.querySelector('#queuePlanStagesList');
+                const toplamAgirlikSpan = summaryModal.querySelector('#summaryToplamAgirlik');
+                const toplamSureSpan = summaryModal.querySelector('#summaryToplamSure');
+                
+                if (toplamAgirlikSpan) toplamAgirlikSpan.textContent = '-';
+                if (toplamSureSpan) toplamSureSpan.textContent = '-';
+                
+                if (stagesList) {
+                    stagesList.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Lütfen planlanan miktar girin</p>';
+                }
+                return;
+            }
         }
         
         const planlananMiktar = parseInt(miktarInput.value);
@@ -4145,37 +4318,39 @@ class DataGrid {
         
         // Planlanan miktar input'unu güncelle (zaten form'da var)
         const miktarInput = modal.querySelector('#queuePlanInputMiktar');
-        if (miktarInput && miktarInput.value !== planlananMiktar.toString()) {
-            miktarInput.value = planlananMiktar;
+        if (miktarInput) {
+            // Eğer planlananMiktar varsa onu kullan, yoksa bakiye miktarını hesapla ve default olarak set et
+            if (planlananMiktar && planlananMiktar > 0) {
+                if (miktarInput.value !== planlananMiktar.toString()) {
+                    miktarInput.value = planlananMiktar;
+                }
+            } else if (!miktarInput.value || miktarInput.value === '0') {
+                // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                const summarySiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                const summarySevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                const summaryBakiyeMiktar = Math.max(0, summarySiparisMiktarHesaplanan - summarySevkMiktari);
+                const summaryBakiyeMiktarDefault = Math.ceil(Number(summaryBakiyeMiktar));
+                miktarInput.value = summaryBakiyeMiktarDefault > 0 ? summaryBakiyeMiktarDefault : '';
+            }
         }
         
         // Aşamalardaki miktar input'larını güncelle
+        // Eğer aşama zaten planlanmışsa, planlanan miktarını göster, değilse bakiye miktarını göster
         const stageQuantityInputs = modal.querySelectorAll('.stage-quantity-input');
         if (stageQuantityInputs.length > 0) {
-                    // Anchor aşamasını bul
-                    const anchorInput = modal.querySelector('.stage-quantity-input[data-is-anchor="true"]');
-                    
-                    if (!anchorInput) {
-                        // Anchor bulunamazsa eski mantıkla devam et
-                        stageQuantityInputs.forEach(input => {
+            stageQuantityInputs.forEach(input => {
+                const isAlreadyPlanned = input.getAttribute('data-is-already-planned') === 'true';
+                const originalQuantity = input.getAttribute('data-original-quantity');
+                
+                // Eğer aşama zaten planlanmışsa ve planlanan miktarı varsa, onu göster
+                if (isAlreadyPlanned && originalQuantity && originalQuantity !== '' && originalQuantity !== 'null' && originalQuantity !== 'undefined') {
+                    input.value = originalQuantity;
+                } else {
+                    // Değilse bakiye miktarını göster
                     input.value = planlananMiktar;
-                        });
-                    } else {
-                        // Anchor aşamasının figür sayısını al
-                        const anchorFigurSayisi = parseFloat(anchorInput.getAttribute('data-figur-sayisi')) || 1;
-                        
-                        // Toplam iş emri miktarını hesapla: anchor_miktarı * anchor_figür_sayısı
-                const toplamIsemriMiktari = planlananMiktar * anchorFigurSayisi;
-                        
-                        // Tüm aşamalardaki miktar input'larını güncelle
-                stageQuantityInputs.forEach((input) => {
-                            const figurSayisi = parseFloat(input.getAttribute('data-figur-sayisi')) || 1;
-                            // Aşama miktarı = toplam iş emri miktarı / aşama figür sayısı
-                            const stageMiktar = Math.ceil(toplamIsemriMiktari / figurSayisi);
-                            input.value = stageMiktar;
-                        });
-            }
-                    }
+                }
+            });
+        }
                     
                     // Ağırlık ve süre değerlerini güncelle
         this.updateSummaryWeightAndTime(item);
@@ -4195,6 +4370,9 @@ class DataGrid {
         html += '<th style="padding: 12px 15px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: 0.5px;">Durum</th>';
         html += '</tr></thead><tbody>';
         
+        // Tüm aşamalar için direkt bakiye miktarını kullan (figür sayısı hesaplaması yok)
+        // planlananMiktar zaten bakiye miktarı, tüm aşamalar için aynı değeri kullan
+        
         plannedStages.forEach((stage, index) => {
             const isAnchor = stage.isAnchor;
             const isAlreadyPlanned = stage.isAlreadyPlanned || false;
@@ -4205,6 +4383,11 @@ class DataGrid {
             const statusBadge = isAlreadyPlanned 
                 ? '<span style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3); display: inline-block;">Planlandı</span>'
                 : '<span style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3); display: inline-block;">Yeni Plan</span>';
+            
+            // Eğer aşama zaten planlanmışsa, planlanan miktarını göster, değilse bakiye miktarını göster
+            const stageMiktar = isAlreadyPlanned && stage.planlananMiktar 
+                ? stage.planlananMiktar 
+                : planlananMiktar;
             
             html += `<tr style="${rowStyle} border-bottom: 1px solid #e0e0e0; transition: background-color 0.2s ease;" data-stage-index="${index}">`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
@@ -4248,7 +4431,8 @@ class DataGrid {
                        data-original-quantity="${stage.planlananMiktar || ''}"
                        data-figur-sayisi="${stage.figurSayisi || 1}"
                        data-is-anchor="${isAnchor ? 'true' : 'false'}"
-                       value="${stage.planlananMiktar || ''}" 
+                       data-is-already-planned="${isAlreadyPlanned ? 'true' : 'false'}"
+                       value="${stageMiktar}" 
                        min="1"
                        style="width: 90px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;" 
                        onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)';" 
@@ -4855,14 +5039,17 @@ class DataGrid {
                             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
                         
                         mainRecord.totalPlanned = totalPlanned;
-                        mainRecord.totalWaiting = Math.max(0, (mainRecord.siparisMiktar || mainRecord.planMiktar || 0) - totalPlanned);
+                        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                        const queueSiparisMiktarHesaplanan = mainRecord.siparisMiktarHesaplanan || mainRecord.siparisMiktar || mainRecord.planMiktar || 0;
+                        const queueSevkMiktari = mainRecord.SEVK_MIKTARI || mainRecord.sevkMiktari || 0;
+                        const queueBakiyeMiktar = Math.max(0, queueSiparisMiktarHesaplanan - queueSevkMiktari);
+                        mainRecord.totalWaiting = Math.max(0, queueBakiyeMiktar - totalPlanned);
                         mainRecord.planlananMiktar = totalPlanned;
                         
-                        // Durumu güncelle
-                        const siparisMiktar = mainRecord.siparisMiktar || mainRecord.planMiktar || 0;
+                        // Durumu güncelle (bakiye miktarı ile karşılaştırma)
                         if (totalPlanned === 0) {
                             mainRecord.durum = 'Beklemede';
-                        } else if (totalPlanned < siparisMiktar) {
+                        } else if (totalPlanned < queueBakiyeMiktar) {
                             mainRecord.durum = 'Kısmi Planlandı';
                         } else {
                             mainRecord.durum = 'Planlandı';
@@ -4966,11 +5153,15 @@ class DataGrid {
         }
         document.getElementById('planningTarih').value = defaultTarih;
         
-        const siparisMiktarDefault = Math.ceil(Number(item.siparisMiktarHesaplanan || 0));
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const bakiyeMiktarDefault = Math.ceil(Number(bakiyeMiktar));
         const providedBreakdownAmount = (typeof item.planlananMiktar === 'number') ? item.planlananMiktar : Number(item.planlananMiktar);
         const defaultAmount = (providedBreakdownAmount && providedBreakdownAmount > 0)
             ? providedBreakdownAmount
-            : siparisMiktarDefault;
+            : bakiyeMiktarDefault;
         document.getElementById('planningMiktar').value = isNaN(defaultAmount) ? '' : defaultAmount;
         
         // Tüm bölüm makinelerini göster (üst makine grubuna atanmış olsa bile)
@@ -5276,9 +5467,16 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     async submitPlanningWithMachineSelection(item) {
-        const selectedMachine = document.querySelector('input[name="selectedMachine"]:checked');
+        // Sadece dropdown/select kontrolü yap (radio button kaldırıldı)
+        const machineSelection = document.getElementById('machineSelection');
+        const selectedMachineSelect = document.querySelector('select[name="selectedMachine"]');
         
-        if (!selectedMachine) {
+        // Seçilen makineyi bul (select veya dropdown)
+        const selectedMachine = selectedMachineSelect ? selectedMachineSelect.value : 
+                               (machineSelection ? machineSelection.value : null);
+        
+        // Eğer hiçbir makine seçilmemişse veya boş değerse uyarı ver
+        if (!selectedMachine || selectedMachine.trim() === '' || selectedMachine === 'null' || selectedMachine === 'undefined') {
             window.planningApp.showWarning('Lütfen bir makine seçin');
             return;
         }
@@ -5286,12 +5484,14 @@ class DataGrid {
         // Seçilen makineyi item'a ekle
         const itemWithSelectedMachine = {
             ...item,
-            selectedMachine: selectedMachine.value
+            selectedMachine: selectedMachine
         };
         
         console.log('🎯 Seçilen makine ile planlama:', {
             originalMachine: item.makAd,
-            selectedMachine: selectedMachine.value,
+            selectedMachine: selectedMachine,
+            select: selectedMachineSelect ? selectedMachineSelect.value : null,
+            dropdown: machineSelection ? machineSelection.value : null,
             item: itemWithSelectedMachine
         });
         
@@ -5363,8 +5563,11 @@ class DataGrid {
         if (!miktarInput) return;
         
         const planlananMiktar = parseInt(miktarInput.value) || 0;
-        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
-        const kalanMiktar = siparisMiktar - planlananMiktar;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const kalanMiktar = bakiyeMiktar - planlananMiktar;
         
         // Sonuç alanını oluştur veya güncelle
         let resultDiv = document.getElementById('planningResult');
@@ -5383,14 +5586,14 @@ class DataGrid {
         }
         
         if (planlananMiktar > 0) {
-            if (planlananMiktar < siparisMiktar) {
+            if (planlananMiktar < bakiyeMiktar) {
                 // Kısmi planlama (yalnız planlanacak miktarı göster)
                 resultDiv.innerHTML = `
                     <div style=\"color: #ff9800; font-weight: bold;\">⚠️ Kısmi Planlama</div>
                     <div>• <strong>${planlananMiktar}</strong> adet planlanacak</div>
                 `;
                 resultDiv.style.border = '2px solid #ff9800';
-            } else if (planlananMiktar === siparisMiktar) {
+            } else if (planlananMiktar === bakiyeMiktar) {
                 // Tam planlama
                 resultDiv.innerHTML = `
                     <div style="color: #4caf50; font-weight: bold;">✅ Tam Planlama</div>
@@ -5398,11 +5601,11 @@ class DataGrid {
                 `;
                 resultDiv.style.border = '2px solid #4caf50';
             } else {
-                // Sipariş miktarından fazla planlama – uyarı ama engelleme yok
-                const fazla = planlananMiktar - siparisMiktar;
+                // Bakiye miktarından fazla planlama – uyarı ama engelleme yok
+                const fazla = planlananMiktar - bakiyeMiktar;
                 resultDiv.innerHTML = `
-                    <div style="color: #1976d2; font-weight: bold;">ℹ️ Sipariş Üstü Planlama</div>
-                    <div>• <strong>${planlananMiktar}</strong> adet planlanacak (sipariş üstü +${fazla})</div>
+                    <div style="color: #1976d2; font-weight: bold;">ℹ️ Bakiye Üstü Planlama</div>
+                    <div>• <strong>${planlananMiktar}</strong> adet planlanacak (bakiye üstü +${fazla})</div>
                 `;
                 resultDiv.style.border = '2px solid #1976d2';
             }
@@ -5419,8 +5622,11 @@ class DataGrid {
      * @returns {Object} Güncellenmiş kırılım verisi
      */
     updatePlanningDataForItem(item, planTarihi, planlananMiktar, createdPlanId = null, aciklama = null) {
-        const siparisMiktar = item.siparisMiktarHesaplanan || 0;
-        const isPartialPlanning = planlananMiktar < siparisMiktar;
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+        const isPartialPlanning = planlananMiktar < bakiyeMiktar;
         
         // ÖNEMLİ: createdPlanId varsa onu kullan, yoksa item.planId kullan (ama "new" değilse)
         const planIdToUse = createdPlanId || (item.planId && item.planId !== 'new' ? item.planId : null);
@@ -5446,7 +5652,7 @@ class DataGrid {
         // Mevcut breakdown'ları koru ve yeni breakdown'ı ekle
         const allBreakdowns = [...existingBreakdowns, newBreakdown];
         const totalPlanned = allBreakdowns.reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
-        const totalWaiting = Math.max(0, siparisMiktar - totalPlanned);
+        const totalWaiting = Math.max(0, bakiyeMiktar - totalPlanned);
         
         if (isPartialPlanning) {
             // Kısmi planlama - mevcut breakdown'ları koru, yeni breakdown'ı ekle
@@ -5455,7 +5661,7 @@ class DataGrid {
                 breakdowns: allBreakdowns,
                 totalPlanned: totalPlanned,
                 totalWaiting: totalWaiting,
-                status: totalPlanned >= siparisMiktar ? 'Planlandı' : 'Kısmi Planlandı'
+                status: totalPlanned >= bakiyeMiktar ? 'Planlandı' : 'Kısmi Planlandı'
             };
         } else {
             // Tam planlama - tüm breakdown'ları göster
@@ -5640,11 +5846,16 @@ class DataGrid {
             .filter(b => b.durum === 'Planlandı')
             .reduce((sum, b) => sum + (b.planlananMiktar || 0), 0);
         
+        // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+        const calcSiparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+        const calcSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+        const calcBakiyeMiktar = Math.max(0, calcSiparisMiktarHesaplanan - calcSevkMiktari);
+        
         return {
             breakdowns: existingBreakdowns,
             totalPlanned: totalPlanned,
-            totalWaiting: Math.max(0, (item.siparisMiktar || item.planMiktar || 0) - totalPlanned),
-            status: totalPlanned >= (item.siparisMiktarHesaplanan || 0) ? 'Planlandı' : 
+            totalWaiting: Math.max(0, calcBakiyeMiktar - totalPlanned),
+            status: totalPlanned >= calcBakiyeMiktar ? 'Planlandı' : 
                     totalPlanned > 0 ? 'Kısmi Planlandı' : 'Beklemede'
         };
     }
@@ -5659,11 +5870,11 @@ class DataGrid {
             const planlananMiktar = parseInt(document.getElementById('planningMiktar').value);
             const aciklama = document.getElementById('planningAciklama')?.value || '';
             
-            // Makine seçimini al (dropdown veya radio button)
+            // Makine seçimini al (sadece dropdown/select - radio button kaldırıldı)
             const machineSelection = document.getElementById('machineSelection');
-            const selectedMachineRadio = document.querySelector('input[name="selectedMachine"]:checked');
+            const selectedMachineSelect = document.querySelector('select[name="selectedMachine"]');
             const selectedMachine = machineSelection ? machineSelection.value : 
-                                   (selectedMachineRadio ? selectedMachineRadio.value : null);
+                                   (selectedMachineSelect ? selectedMachineSelect.value : null);
 
             // ÖNEMLİ: item referansı eski olabilir, güncel data array'inden yeniden al
             // Geri çekme sonrası planId null olur, bu yüzden güncel veriyi kullanmalıyız
@@ -6210,19 +6421,22 @@ class DataGrid {
                     planlananMiktar = cacheItem.totalPlanned || 0;
                 }
                 
-                const siparisMiktar = cacheItem.siparisMiktarHesaplanan || 0;
+                // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+                const siparisMiktarHesaplanan = cacheItem.siparisMiktarHesaplanan || 0;
+                const sevkMiktari = cacheItem.SEVK_MIKTARI || cacheItem.sevkMiktari || 0;
+                const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
                 const gercekMiktar = cacheItem.gercekMiktar || 0;
                 
-                // Durum belirleme - planlanan miktara göre
+                // Durum belirleme - planlanan miktara göre (bakiye miktarı ile karşılaştırma)
                 let durum = 'BEKLEMEDE';
-                if (gercekMiktar > 0 && gercekMiktar >= siparisMiktar) {
+                if (gercekMiktar > 0 && gercekMiktar >= bakiyeMiktar) {
                     durum = 'TAMAMLANDI';
                 } else if (planlananMiktar > 0) {
                     // Eşit değil, tam olarak küçük olmalı (kısmi planlama)
-                    if (planlananMiktar < siparisMiktar) {
+                    if (planlananMiktar < bakiyeMiktar) {
                         durum = 'KISMI_PLANLANDI';
                     } else {
-                        // planlananMiktar >= siparisMiktar (tam planlama)
+                        // planlananMiktar >= bakiyeMiktar (tam planlama)
                         durum = 'PLANLANDI';
                     }
                 }
@@ -6234,7 +6448,7 @@ class DataGrid {
                     MALHIZ_ADI: cacheItem.malhizAdi,
                     IMALAT_TURU: cacheItem.imalatTuru,
                     PLAN_MIKTAR: cacheItem.planMiktar || 0, // Kalıp miktarı (backend için)
-                    SIPARIS_MIKTAR: siparisMiktar, // Adet miktarı (planlama için)
+                    SIPARIS_MIKTAR: bakiyeMiktar, // Bakiye miktarı (planlama için - sipariş miktarı - sevk miktarı)
                     GERCEK_MIKTAR: gercekMiktar,
                     AGIRLIK: cacheItem.agirlik || 0,
                     TOPLAM_SURE: cacheItem.toplamSure || 0,
@@ -11890,6 +12104,7 @@ class DataGrid {
         const columnLabels = {
             'durum': 'Durum',
             'isemriNo': 'İş Emri No',
+            'siparisNo': 'Sipariş No',
             'malhizKodu': 'Malzeme Kodu',
             'imalatTuru': 'Malzeme',
             'makAd': 'Makina Adı',
@@ -12891,10 +13106,13 @@ class DataGrid {
         
         items.forEach((item, index) => {
             const rowBgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-            const siparisMiktar = item.siparisMiktarHesaplanan || 0;
+            // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
+            const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+            const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+            const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
             const waitingMiktar = item.breakdowns && item.breakdowns.length > 0
-                ? item.breakdowns.find(b => b.durum === 'Beklemede')?.planlananMiktar || siparisMiktar
-                : siparisMiktar;
+                ? item.breakdowns.find(b => b.durum === 'Beklemede')?.planlananMiktar || bakiyeMiktar
+                : bakiyeMiktar;
             
             // Önerilen teslim tarihini varsayılan olarak kullan, yoksa bugünün tarihini kullan
             let defaultDate = todayStr;
@@ -12975,9 +13193,25 @@ class DataGrid {
                 
                 if (bolumAdi) {
                     // Bölüm makinelerini üst makine gruplarına göre al
-                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, makAd);
+                    // makAd parametresini boş göndererek TÜM bölüm makinelerini göster
+                    const result = await this.getMachinesWithGroupsForBolum(bolumAdi, '');
                     machines = result.machines;
                     machineGroups = result.groups;
+                    
+                    // ÖNEMLİ: Eğer makAd mapping'de yoksa ama veritabanında varsa, onu da ekle
+                    if (makAd && makAd.trim()) {
+                        const allMachineNames = machines.map(m => m.makAd);
+                        if (!allMachineNames.includes(makAd)) {
+                            // Makineyi "Makineler" grubuna ekle
+                            if (!machineGroups['Makineler']) {
+                                machineGroups['Makineler'] = [];
+                            }
+                            if (!machineGroups['Makineler'].includes(makAd)) {
+                                machineGroups['Makineler'].push(makAd);
+                                machines.push({ makAd: makAd, group: 'Makineler' });
+                            }
+                        }
+                    }
                 } else if (makAd) {
                     // Bölüm bilgisi yoksa, sadece mevcut makineyi göster (grup olmadan)
                     machines = [{ makAd: makAd, group: 'Makineler' }];
