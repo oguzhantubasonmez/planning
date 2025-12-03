@@ -2456,134 +2456,19 @@ app.get('/api/machine/check-upper', async (req, res) => {
 });
 
 // Makine mapping endpoint'i - Bölüm bazında üst makine grupları ve alt makineleri döndürür
+// BASİT MANTIK:
+// - ÜST GRUP FİLTRESİNDE: MAK_TIP = 1 olan (Tezgah Grubu-İş Merk.Grubu) gruplar gösterilecek
+// - MAKİNE FİLTRESİNDE: Seçilen üst grubun altında bulunan MAK_TIP = 2 olan makineler listelenecek
+// - ETKGST = 1 ve FABRIKA_KOD = 120 kısıtları kalacak
 app.get('/api/machines/mapping', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
         
-        // Bölüm-makine ilişkisini ve üst makine gruplarını çek
-        // 1. V_ISEMRI_DETAY'dan bölüm-makine ilişkisini al (distinct)
-        // 2. V_URT_UST_MAKINA'dan üst makine-alt makine ilişkisini al
-        // 3. Bu ikisini birleştirerek bölüm -> üst makine grubu -> alt makineler yapısını oluştur
-        
-        // Önce test sorguları çalıştır
-        // 1. ISEMRI_FILTERED kontrolü
-        const testISEMRI = `
-            SELECT COUNT(*) as CNT
-            FROM ERPURT.T_URT_ISEMRI 
-            WHERE FABRIKA_KOD = 120 AND DURUMU = 1
-        `;
-        const testISEMRIResult = await connection.execute(testISEMRI);
-        console.log('T_URT_ISEMRI kayıt sayısı (FABRIKA_KOD=120, DURUMU=1):', testISEMRIResult.rows[0][0]);
-        
-        // 2. V_ISEMRI_DETAY toplam kayıt sayısı (filtre olmadan)
-        const testQuery0 = `
-            SELECT COUNT(*) as CNT
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-        `;
-        const testResult0 = await connection.execute(testQuery0);
-        console.log('V_ISEMRI_DETAY toplam kayıt sayısı (filtre olmadan):', testResult0.rows[0][0]);
-        
-        // 3. V_ISEMRI_DETAY BOLUM_ADI ve MAK_AD kontrolü
-        const testQuery0a = `
-            SELECT 
-                COUNT(*) as TOTAL,
-                COUNT(VD.BOLUM_ADI) as BOLUM_ADI_NOT_NULL,
-                COUNT(CASE WHEN TRIM(VD.BOLUM_ADI) IS NOT NULL AND LENGTH(TRIM(VD.BOLUM_ADI)) > 0 THEN 1 END) as BOLUM_ADI_NOT_EMPTY,
-                COUNT(VD.MAK_AD) as MAK_AD_NOT_NULL,
-                COUNT(CASE WHEN TRIM(VD.MAK_AD) IS NOT NULL AND LENGTH(TRIM(VD.MAK_AD)) > 0 THEN 1 END) as MAK_AD_NOT_EMPTY
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-        `;
-        const testResult0a = await connection.execute(testQuery0a);
-        console.log('V_ISEMRI_DETAY alan kontrolü:', {
-            total: testResult0a.rows[0][0],
-            bolumAdiNotNull: testResult0a.rows[0][1],
-            bolumAdiNotEmpty: testResult0a.rows[0][2],
-            makAdNotNull: testResult0a.rows[0][3],
-            makAdNotEmpty: testResult0a.rows[0][4]
-        });
-        
-        // 4. V_ISEMRI_DETAY direkt kontrolü (JOIN olmadan, LENGTH kullanarak)
-        const testQuery1 = `
-            SELECT COUNT(*) as CNT
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-            WHERE VD.BOLUM_ADI IS NOT NULL 
-                AND LENGTH(TRIM(VD.BOLUM_ADI)) > 0
-                AND UPPER(TRIM(VD.BOLUM_ADI)) != 'TANIMSIZ'
-                AND VD.MAK_AD IS NOT NULL
-                AND LENGTH(TRIM(VD.MAK_AD)) > 0
-        `;
-        const testResult1 = await connection.execute(testQuery1);
-        console.log('V_ISEMRI_DETAY kayıt sayısı (filtreli, JOIN olmadan, LENGTH ile):', testResult1.rows[0][0]);
-        
-        // 5. V_ISEMRI_DETAY ile JOIN kontrolü (LENGTH ile)
-        const testQuery1WithJoin = `
-            WITH ISEMRI_FILTERED AS (
-                SELECT * 
-                FROM ERPURT.T_URT_ISEMRI 
-                WHERE FABRIKA_KOD = 120 AND DURUMU = 1
-            )
-            SELECT COUNT(*) as CNT
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-            INNER JOIN ISEMRI_FILTERED IF ON VD.ISEMRI_ID = IF.ISEMRI_ID
-            WHERE VD.BOLUM_ADI IS NOT NULL 
-                AND LENGTH(TRIM(VD.BOLUM_ADI)) > 0
-                AND UPPER(TRIM(VD.BOLUM_ADI)) != 'TANIMSIZ'
-                AND VD.MAK_AD IS NOT NULL
-                AND LENGTH(TRIM(VD.MAK_AD)) > 0
-        `;
-        const testResult1WithJoin = await connection.execute(testQuery1WithJoin);
-        console.log('V_ISEMRI_DETAY kayıt sayısı (filtreli, JOIN ile, LENGTH ile):', testResult1WithJoin.rows[0][0]);
-        
-        // 6. V_URT_UST_MAKINA kontrolü
-        const testQuery2 = `
-            SELECT COUNT(*) as CNT
-            FROM ERPREADONLY.V_URT_UST_MAKINA UM
-            INNER JOIN ERPURT.T_URT_MAKINA TM ON TRIM(UM.MAK_AD) = TRIM(TM.MAK_AD)
-            WHERE UM.UST_MAK_AD IS NOT NULL
-                AND LENGTH(TRIM(UM.UST_MAK_AD)) > 0
-                AND UM.MAK_AD IS NOT NULL
-                AND LENGTH(TRIM(UM.MAK_AD)) > 0
-                AND TM.MAK_TIP = 2
-                AND TM.ETKGST = 1
-        `;
-        const testResult2 = await connection.execute(testQuery2);
-        console.log('V_URT_UST_MAKINA kayıt sayısı (MAK_TIP=2, ETKGST=1, LENGTH ile):', testResult2.rows[0][0]);
-        
-        // 7. V_ISEMRI_DETAY'dan örnek veri (filtre olmadan)
-        const sampleVDNoFilter = `
-            SELECT DISTINCT 
-                VD.BOLUM_ADI,
-                VD.MAK_AD,
-                LENGTH(TRIM(VD.BOLUM_ADI)) as BOLUM_LEN,
-                LENGTH(TRIM(VD.MAK_AD)) as MAK_LEN
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-            WHERE ROWNUM <= 10
-        `;
-        const sampleVDNoFilterResult = await connection.execute(sampleVDNoFilter);
-        console.log('V_ISEMRI_DETAY örnek veriler (filtre olmadan, ilk 10):');
-        sampleVDNoFilterResult.rows.forEach((row, idx) => {
-            console.log(`  ${idx + 1}. Bölüm: "${row[0]}" (len: ${row[2]}), Makine: "${row[1]}" (len: ${row[3]})`);
-        });
-        
-        // 8. V_ISEMRI_DETAY'dan örnek veri (LENGTH ile filtreli)
-        const sampleVD = `
-            SELECT DISTINCT 
-                TRIM(VD.BOLUM_ADI) AS BOLUM_ADI,
-                TRIM(VD.MAK_AD) AS MAK_AD
-            FROM ERPREADONLY.V_ISEMRI_DETAY VD
-            WHERE VD.BOLUM_ADI IS NOT NULL 
-                AND LENGTH(TRIM(VD.BOLUM_ADI)) > 0
-                AND UPPER(TRIM(VD.BOLUM_ADI)) != 'TANIMSIZ'
-                AND VD.MAK_AD IS NOT NULL
-                AND LENGTH(TRIM(VD.MAK_AD)) > 0
-            AND ROWNUM <= 10
-        `;
-        const sampleVDResult = await connection.execute(sampleVD);
-        console.log('V_ISEMRI_DETAY örnek veriler (LENGTH ile filtreli, ilk 10):');
-        sampleVDResult.rows.forEach((row, idx) => {
-            console.log(`  ${idx + 1}. Bölüm: "${row[0]}", Makine: "${row[1]}"`);
-        });
+        // BASİT MANTIK:
+        // 1. Üst makine grupları: T_URT_MAKINA'dan MAK_TIP = 1 olanlar (Tezgah Grubu-İş Merk.Grubu)
+        // 2. Alt makineler: V_URT_UST_MAKINA'dan üst makine-alt makine ilişkilerini al, MAK_TIP = 2 olanlar
+        // 3. Bölüm bilgisi: V_ISEMRI_DETAY'dan al
         
         const mappingQuery = `
             WITH ISEMRI_FILTERED AS (
@@ -2604,119 +2489,108 @@ app.get('/api/machines/mapping', async (req, res) => {
                     AND VD.MAK_AD IS NOT NULL
                     AND LENGTH(TRIM(VD.MAK_AD)) > 0
             ),
-            -- Tüm üst makine-alt makine ilişkileri (V_URT_UST_MAKINA'dan)
-            -- Sadece Tezgah-İş Merkezi tipindeki makineleri al (MAK_TIP=2) ve ETKGST=1 olanları
+            -- Üst makine grupları: T_URT_MAKINA'dan MAK_TIP = 1 olanlar (Tezgah Grubu-İş Merk.Grubu)
             UST_MAKINE_GRUPLARI AS (
                 SELECT DISTINCT
+                    TRIM(TM.MAK_AD) AS UST_MAK_AD
+                FROM ERPURT.T_URT_MAKINA TM
+                WHERE TM.MAK_TIP = 1  -- Tezgah Grubu-İş Merk.Grubu
+                    AND TM.ETKGST = 1   -- ETKGST=1 olanlar
+                    AND TM.FABRIKA_KOD = 120  -- FABRIKA_KOD=120 olanlar
+                    AND TM.MAK_AD IS NOT NULL
+                    AND LENGTH(TRIM(TM.MAK_AD)) > 0
+            ),
+            -- Üst makine-alt makine ilişkileri: V_URT_UST_MAKINA'dan
+            -- Alt makineler: MAK_TIP = 2 olanlar (Tezgah-İş Merkezi)
+            UST_MAKINE_ALT_MAKINE AS (
+                SELECT DISTINCT
                     TRIM(UM.UST_MAK_AD) AS UST_MAK_AD,
-                    TRIM(UM.MAK_AD) AS MAK_AD
+                    TRIM(UM.MAK_AD) AS ALT_MAK_AD
                 FROM ERPREADONLY.V_URT_UST_MAKINA UM
                 INNER JOIN ERPURT.T_URT_MAKINA TM ON TRIM(UM.MAK_AD) = TRIM(TM.MAK_AD)
+                INNER JOIN UST_MAKINE_GRUPLARI UMG ON TRIM(UM.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
                 WHERE UM.UST_MAK_AD IS NOT NULL
                     AND LENGTH(TRIM(UM.UST_MAK_AD)) > 0
                     AND UM.MAK_AD IS NOT NULL
                     AND LENGTH(TRIM(UM.MAK_AD)) > 0
-                    AND TM.MAK_TIP = 2  -- Sadece Tezgah-İş Merkezi tipindeki makineler
+                    AND TM.MAK_TIP = 2  -- Tezgah-İş Merkezi
                     AND TM.ETKGST = 1   -- ETKGST=1 olanlar
                     AND TM.FABRIKA_KOD = 120  -- FABRIKA_KOD=120 olanlar
             ),
             -- Üst makine gruplarının bölümlerini bul (alt makinelerinden)
-            UST_MAKINE_BOLUM AS (
+            UST_MAKINE_BOLUM_ALT_MAKINEDEN AS (
+                SELECT DISTINCT
+                    TRIM(UMA.UST_MAK_AD) AS UST_MAK_AD,
+                    TRIM(BM.BOLUM_ADI) AS BOLUM_ADI
+                FROM UST_MAKINE_ALT_MAKINE UMA
+                INNER JOIN BOLUM_MAKINE BM ON TRIM(UMA.ALT_MAK_AD) = TRIM(BM.MAK_AD)
+            ),
+            -- Üst makine gruplarının bölümlerini bul (kendisinden - eğer rota operasyonunda tanımlanmışsa)
+            UST_MAKINE_BOLUM_KENDISINDEN AS (
                 SELECT DISTINCT
                     TRIM(UMG.UST_MAK_AD) AS UST_MAK_AD,
                     TRIM(BM.BOLUM_ADI) AS BOLUM_ADI
                 FROM UST_MAKINE_GRUPLARI UMG
-                INNER JOIN BOLUM_MAKINE BM ON TRIM(UMG.MAK_AD) = TRIM(BM.MAK_AD)
+                INNER JOIN BOLUM_MAKINE BM ON TRIM(UMG.UST_MAK_AD) = TRIM(BM.MAK_AD)
             ),
-            -- Üst makine gruplarının kendilerinin de bölümlerini bul (eğer rota operasyonunda tanımlanmışsa)
-            UST_MAKINE_AS_MAKINE_BOLUM AS (
+            -- Üst makine gruplarının bölümlerini birleştir
+            UST_MAKINE_BOLUM AS (
                 SELECT DISTINCT
-                    TRIM(UMB.UST_MAK_AD) AS UST_MAK_AD,
-                    TRIM(BM.BOLUM_ADI) AS BOLUM_ADI
-                FROM UST_MAKINE_BOLUM UMB
-                INNER JOIN BOLUM_MAKINE BM ON TRIM(UMB.UST_MAK_AD) = TRIM(BM.MAK_AD)
+                    UST_MAK_AD,
+                    BOLUM_ADI
+                FROM (
+                    SELECT UST_MAK_AD, BOLUM_ADI FROM UST_MAKINE_BOLUM_ALT_MAKINEDEN
+                    UNION
+                    SELECT UST_MAK_AD, BOLUM_ADI FROM UST_MAKINE_BOLUM_KENDISINDEN
+                )
             )
-            -- 1. V_ISEMRI_DETAY'dan gelen makineler (üst makine grubu varsa onu kullan, yoksa direkt makine)
+            -- Sonuç 1: Alt makineleri olan üst makine grupları
             SELECT 
-                BM.BOLUM_ADI,
-                NVL(UMG.UST_MAK_AD, BM.MAK_AD) AS UST_MAK_AD_OR_MAKINE,
-                BM.MAK_AD AS ALT_MAKINE,
-                CASE 
-                    WHEN UMG.UST_MAK_AD IS NOT NULL THEN 1 
-                    ELSE 0 
-                END AS IS_UPPER_MACHINE_GROUP
-            FROM BOLUM_MAKINE BM
-            LEFT JOIN UST_MAKINE_GRUPLARI UMG ON TRIM(BM.MAK_AD) = TRIM(UMG.MAK_AD)
-            
-            UNION ALL
-            
-            -- 2. V_URT_UST_MAKINA'dan gelen TÜM üst makine-alt makine ilişkileri
-            -- (iş emrinde olmasa bile, planlama için gerekli)
-            -- Bölüm bilgisini alt makinelerden veya üst makine grubunun kendisinden al
-            SELECT 
-                NVL(
-                    NVL(UMB.BOLUM_ADI, UMB_AS.BOLUM_ADI),  -- Önce üst makine grubunun bölümü
-                    (SELECT DISTINCT BM_ALT.BOLUM_ADI       -- Yoksa aynı üst grubun diğer alt makinelerinden birinin bölümü
-                     FROM BOLUM_MAKINE BM_ALT
-                     INNER JOIN UST_MAKINE_GRUPLARI UMG_ALT ON TRIM(BM_ALT.MAK_AD) = TRIM(UMG_ALT.MAK_AD)
-                     WHERE TRIM(UMG_ALT.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
+                NVL(UMB.BOLUM_ADI, 
+                    (SELECT DISTINCT BM2.BOLUM_ADI 
+                     FROM BOLUM_MAKINE BM2 
+                     INNER JOIN UST_MAKINE_ALT_MAKINE UMA2 ON TRIM(BM2.MAK_AD) = TRIM(UMA2.ALT_MAK_AD)
+                     WHERE TRIM(UMA2.UST_MAK_AD) = TRIM(UMA.UST_MAK_AD)
                      AND ROWNUM = 1)
                 ) AS BOLUM_ADI,
-                UMG.UST_MAK_AD AS UST_MAK_AD_OR_MAKINE,
-                UMG.MAK_AD AS ALT_MAKINE,
-                1 AS IS_UPPER_MACHINE_GROUP
+                TRIM(UMA.UST_MAK_AD) AS UST_MAK_AD,
+                TRIM(UMA.ALT_MAK_AD) AS ALT_MAK_AD
+            FROM UST_MAKINE_ALT_MAKINE UMA
+            LEFT JOIN UST_MAKINE_BOLUM UMB ON TRIM(UMA.UST_MAK_AD) = TRIM(UMB.UST_MAK_AD)
+            
+            UNION ALL
+            
+            -- Sonuç 2: Alt makineleri olmayan üst makine grupları (bölüm bilgisi varsa)
+            SELECT 
+                TRIM(UMB.BOLUM_ADI) AS BOLUM_ADI,
+                TRIM(UMG.UST_MAK_AD) AS UST_MAK_AD,
+                NULL AS ALT_MAK_AD
             FROM UST_MAKINE_GRUPLARI UMG
-            LEFT JOIN UST_MAKINE_BOLUM UMB ON TRIM(UMG.UST_MAK_AD) = TRIM(UMB.UST_MAK_AD)
-            LEFT JOIN UST_MAKINE_AS_MAKINE_BOLUM UMB_AS ON TRIM(UMG.UST_MAK_AD) = TRIM(UMB_AS.UST_MAK_AD)
-            -- Bölüm bilgisi yoksa da ekle (planlama için gerekli)
-            -- Zaten ana sorguda eklenmiş olanları tekrar ekleme (sadece bölüm bilgisi varsa kontrol et)
-            WHERE (
-                -- Bölüm bilgisi varsa, aynı makine-bölüm kombinasyonunun zaten eklenmiş olup olmadığını kontrol et
-                (NVL(UMB.BOLUM_ADI, UMB_AS.BOLUM_ADI) IS NOT NULL 
-                 AND NOT EXISTS (
-                     SELECT 1 FROM BOLUM_MAKINE BM2 
-                     INNER JOIN UST_MAKINE_GRUPLARI UMG2 ON TRIM(BM2.MAK_AD) = TRIM(UMG2.MAK_AD)
-                     WHERE TRIM(BM2.MAK_AD) = TRIM(UMG.MAK_AD)
-                         AND TRIM(BM2.BOLUM_ADI) = NVL(UMB.BOLUM_ADI, UMB_AS.BOLUM_ADI)
-                         AND TRIM(UMG2.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
-                 ))
-                OR
-                -- Bölüm bilgisi yoksa, aynı makine-üst grup kombinasyonunun zaten eklenmiş olup olmadığını kontrol et
-                (NVL(UMB.BOLUM_ADI, UMB_AS.BOLUM_ADI) IS NULL
-                 AND NOT EXISTS (
-                     SELECT 1 FROM BOLUM_MAKINE BM2 
-                     INNER JOIN UST_MAKINE_GRUPLARI UMG2 ON TRIM(BM2.MAK_AD) = TRIM(UMG2.MAK_AD)
-                     WHERE TRIM(BM2.MAK_AD) = TRIM(UMG.MAK_AD)
-                         AND TRIM(UMG2.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
-                 ))
+            INNER JOIN UST_MAKINE_BOLUM UMB ON TRIM(UMG.UST_MAK_AD) = TRIM(UMB.UST_MAK_AD)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM UST_MAKINE_ALT_MAKINE UMA 
+                WHERE TRIM(UMA.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
             )
             
             UNION ALL
             
-            -- 3. Üst makine gruplarını da direkt makine olarak ekle (eğer rota operasyonunda tanımlanmışsa)
-            -- Ancak sadece başka bir üst makine grubuna bağlı olmayanları ekle
+            -- Sonuç 3: Bölüm bilgisi olmayan ama MAK_TIP = 1 olan tüm üst makine grupları
+            -- (Bölüm bilgisi yoksa NULL olarak ekle, JavaScript tarafında tahmin edilecek)
             SELECT 
-                BM.BOLUM_ADI,
-                UMG.UST_MAK_AD AS UST_MAK_AD_OR_MAKINE,
-                UMG.UST_MAK_AD AS ALT_MAKINE,
-                0 AS IS_UPPER_MACHINE_GROUP
+                NULL AS BOLUM_ADI,
+                TRIM(UMG.UST_MAK_AD) AS UST_MAK_AD,
+                NULL AS ALT_MAK_AD
             FROM UST_MAKINE_GRUPLARI UMG
-            INNER JOIN BOLUM_MAKINE BM ON TRIM(UMG.UST_MAK_AD) = TRIM(BM.MAK_AD)
             WHERE NOT EXISTS (
-                -- Bu üst makine grubu başka bir üst makine grubunun alt makinesi olmamalı
-                SELECT 1 FROM UST_MAKINE_GRUPLARI UMG_PARENT 
-                WHERE TRIM(UMG_PARENT.MAK_AD) = TRIM(UMG.UST_MAK_AD)
-                    AND TRIM(UMG_PARENT.UST_MAK_AD) != TRIM(UMG.UST_MAK_AD)
+                SELECT 1 FROM UST_MAKINE_BOLUM UMB 
+                WHERE TRIM(UMB.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
             )
             AND NOT EXISTS (
-                -- Zaten ana sorguda eklenmiş olmamalı (üst makine grubu olarak)
-                SELECT 1 FROM BOLUM_MAKINE BM2 
-                INNER JOIN UST_MAKINE_GRUPLARI UMG2 ON TRIM(BM2.MAK_AD) = TRIM(UMG2.MAK_AD)
-                WHERE TRIM(BM2.MAK_AD) = TRIM(UMG.UST_MAK_AD) 
-                    AND TRIM(BM2.BOLUM_ADI) = TRIM(BM.BOLUM_ADI)
+                SELECT 1 FROM UST_MAKINE_ALT_MAKINE UMA 
+                WHERE TRIM(UMA.UST_MAK_AD) = TRIM(UMG.UST_MAK_AD)
             )
             
-            ORDER BY BOLUM_ADI, UST_MAK_AD_OR_MAKINE, ALT_MAKINE
+            ORDER BY BOLUM_ADI, UST_MAK_AD, ALT_MAK_AD
         `;
         
         const result = await connection.execute(mappingQuery);
@@ -2727,9 +2601,8 @@ app.get('/api/machines/mapping', async (req, res) => {
             result.rows.slice(0, 5).forEach((row, idx) => {
                 console.log(`  Satır ${idx + 1}:`, {
                     BOLUM_ADI: row[0],
-                    UST_MAK_AD_OR_MAKINE: row[1],
-                    ALT_MAKINE: row[2],
-                    IS_UPPER_MACHINE_GROUP: row[3]
+                    UST_MAK_AD: row[1],
+                    ALT_MAK_AD: row[2]
                 });
             });
         } else {
@@ -2739,43 +2612,33 @@ app.get('/api/machines/mapping', async (req, res) => {
         // Sonuçları bölüm -> üst makine grubu -> alt makineler formatına dönüştür
         const mapping = {};
         
-        // Önce tüm üst makine gruplarını topla (üst makine grubu olarak tanımlanmış olanlar)
-        const upperMachineGroups = new Set();
         result.rows.forEach(row => {
-            if (row[3] === 1) { // IS_UPPER_MACHINE_GROUP = 1
-                upperMachineGroups.add(row[1]); // UST_MAK_AD_OR_MAKINE
-            }
-        });
-        
-        result.rows.forEach(row => {
-            let bolumAdi = row[0]; // BOLUM_ADI (NULL olabilir)
-            const ustMakAdOrMakine = row[1]; // UST_MAK_AD_OR_MAKINE (üst makine grubu veya direkt makine)
-            const altMakine = row[2]; // ALT_MAKINE
-            const isUpperMachineGroup = row[3] === 1; // IS_UPPER_MACHINE_GROUP
+            let bolumAdi = row[0]; // BOLUM_ADI
+            const ustMakAd = row[1]; // UST_MAK_AD
+            const altMakAd = row[2]; // ALT_MAK_AD (NULL olabilir)
             
             // Bölüm bilgisi yoksa, üst makine grubunun adından tahmin et
-            if (!bolumAdi && ustMakAdOrMakine) {
-                // Üst makine grubunun adından bölüm tahmin et
-                if (ustMakAdOrMakine.includes('Maça') || ustMakAdOrMakine.includes('maça') || ustMakAdOrMakine.includes('MAÇA')) {
+            if (!bolumAdi && ustMakAd) {
+                if (ustMakAd.includes('Maça') || ustMakAd.includes('maça') || ustMakAd.includes('MAÇA')) {
                     bolumAdi = '01.MAÇAHANE';
-                } else if (ustMakAdOrMakine.includes('Kalıp') || ustMakAdOrMakine.includes('kalıp') || ustMakAdOrMakine.includes('KALIP')) {
+                } else if (ustMakAd.includes('Kalıp') || ustMakAd.includes('kalıp') || ustMakAd.includes('KALIP')) {
                     bolumAdi = '02.KALIPLAMA';
-                } else if (ustMakAdOrMakine.includes('Döküm') || ustMakAdOrMakine.includes('döküm') || ustMakAdOrMakine.includes('DÖKÜM')) {
+                } else if (ustMakAd.includes('Döküm') || ustMakAd.includes('döküm') || ustMakAd.includes('DÖKÜM')) {
                     bolumAdi = '04.DÖKÜM';
-                } else if (ustMakAdOrMakine.includes('Taşlama') || ustMakAdOrMakine.includes('taşlama') || ustMakAdOrMakine.includes('TAŞLAMA')) {
+                } else if (ustMakAd.includes('Taşlama') || ustMakAd.includes('taşlama') || ustMakAd.includes('TAŞLAMA')) {
                     bolumAdi = '05.TAŞLAMA';
-                } else if (ustMakAdOrMakine.includes('Boya') || ustMakAdOrMakine.includes('boya') || ustMakAdOrMakine.includes('BOYA')) {
+                } else if (ustMakAd.includes('Boya') || ustMakAd.includes('boya') || ustMakAd.includes('BOYA')) {
                     bolumAdi = '06.BOYAHANE';
-                } else if (ustMakAdOrMakine.includes('İşlem') || ustMakAdOrMakine.includes('işlem') || ustMakAdOrMakine.includes('İŞLEM')) {
+                } else if (ustMakAd.includes('İşlem') || ustMakAd.includes('işlem') || ustMakAd.includes('İŞLEM')) {
                     bolumAdi = '07.İŞLEME';
-                } else if (ustMakAdOrMakine.includes('Paket') || ustMakAdOrMakine.includes('paket') || ustMakAdOrMakine.includes('PAKET')) {
+                } else if (ustMakAd.includes('Paket') || ustMakAd.includes('paket') || ustMakAd.includes('PAKET')) {
                     bolumAdi = '08.PAKETLEME';
-                } else if (ustMakAdOrMakine.includes('Fason') || ustMakAdOrMakine.includes('fason') || ustMakAdOrMakine.includes('FASON')) {
+                } else if (ustMakAd.includes('Fason') || ustMakAd.includes('fason') || ustMakAd.includes('FASON')) {
                     bolumAdi = 'FASON İŞLEMLER';
                 }
             }
             
-            if (!bolumAdi || !ustMakAdOrMakine || !altMakine) {
+            if (!bolumAdi || !ustMakAd) {
                 return; // Eksik veri varsa atla
             }
             
@@ -2784,64 +2647,15 @@ app.get('/api/machines/mapping', async (req, res) => {
                 mapping[bolumAdi] = {};
             }
             
-            // Üst makine grubu varsa
-            if (isUpperMachineGroup) {
-                // Üst makine grubu yoksa oluştur
-                if (!mapping[bolumAdi][ustMakAdOrMakine]) {
-                    mapping[bolumAdi][ustMakAdOrMakine] = [];
-                }
-                // Alt makineyi ekle (duplicate kontrolü ile)
-                // ÖNEMLİ: 
-                // 1. Üst makine grubunun kendisini alt makinelerine ekleme
-                // 2. Eğer alt makine başka bir üst makine grubu ise, onu da ekleme
-                if (altMakine !== ustMakAdOrMakine 
-                    && !upperMachineGroups.has(altMakine)  // Alt makine bir üst makine grubu değilse
-                    && !mapping[bolumAdi][ustMakAdOrMakine].includes(altMakine)) {
-                    mapping[bolumAdi][ustMakAdOrMakine].push(altMakine);
-                }
-            } else {
-                // Direkt makine (üst makine grubu yok) veya üst makine grubunun kendisi de bir makine
-                // Eğer üst makine grubu zaten varsa ve alt makine üst makine grubuyla aynıysa, 
-                // bu üst makine grubunun kendisinin de bir makine olarak tanımlanmış olması durumudur
-                // ANCAK: Eğer bu üst makine grubu zaten bir üst makine grubu olarak tanımlanmışsa,
-                // kendisini alt makinelerine ekleme (çünkü zaten üst grup olarak var)
-                if (ustMakAdOrMakine === altMakine) {
-                    // Üst makine grubunun kendisi de bir makine olarak tanımlanmış
-                    // Ama eğer bu bir üst makine grubu ise, kendisini alt makinelerine ekleme
-                    if (!upperMachineGroups.has(ustMakAdOrMakine)) {
-                        // Bu gerçekten direkt bir makine (üst makine grubu değil)
-                        if (!mapping[bolumAdi][altMakine]) {
-                            mapping[bolumAdi][altMakine] = [];
-                        }
-                        // Kendisini ekle (duplicate kontrolü ile)
-                        if (!mapping[bolumAdi][altMakine].includes(altMakine)) {
-                            mapping[bolumAdi][altMakine].push(altMakine);
-                        }
-                    }
-                    // Eğer üst makine grubu ise, hiçbir şey yapma (zaten üst grup olarak var)
-                } else {
-                    // Direkt makine (üst makine grubu yok)
-                    // Bu durumda makineyi kendi adıyla bir grup olarak ekle
-                    // Ancak eğer bu makine bir üst makine grubu ise, ekleme (zaten üst grup olarak var)
-                    if (!upperMachineGroups.has(altMakine)) {
-                        if (!mapping[bolumAdi][altMakine]) {
-                            mapping[bolumAdi][altMakine] = [altMakine];
-                        }
-                    }
-                }
+            // Üst makine grubu yoksa oluştur
+            if (!mapping[bolumAdi][ustMakAd]) {
+                mapping[bolumAdi][ustMakAd] = [];
             }
-        });
-        
-        // Temizleme: Her üst makine grubunun alt makinelerinden kendisini kaldır
-        Object.keys(mapping).forEach(bolumAdi => {
-            Object.keys(mapping[bolumAdi]).forEach(ustMakineGrubu => {
-                const altMakineler = mapping[bolumAdi][ustMakineGrubu];
-                if (Array.isArray(altMakineler)) {
-                    // Üst makine grubunun kendisini alt makinelerinden kaldır
-                    const filtered = altMakineler.filter(makine => makine !== ustMakineGrubu);
-                    mapping[bolumAdi][ustMakineGrubu] = filtered;
-                }
-            });
+            
+            // Alt makineyi ekle (eğer varsa ve duplicate değilse)
+            if (altMakAd && !mapping[bolumAdi][ustMakAd].includes(altMakAd)) {
+                mapping[bolumAdi][ustMakAd].push(altMakAd);
+            }
         });
         
         // Mapping özeti
