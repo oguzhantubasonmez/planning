@@ -395,15 +395,12 @@ class ChartManager {
                     }
                 }
             } else {
-                // Farklı yıllar arasında - bu durum artık olmamalı çünkü focusOnWeek her zaman aynı yıl içinde kalıyor
-                // Ama yine de güvenlik için kontrol edelim
-                console.warn('Beklenmeyen yıl değişimi tespit edildi, varsayılan aralık kullanılıyor:', {
+                // Farklı yıllar arasında - yıl değişimini destekle
+                console.log('Yıl değişimi tespit edildi, haftalar oluşturuluyor:', {
                     startYear, startWeek, endYear, endWeek
                 });
-                const currentWeek = this.getWeekString(new Date());
-                const currentWeekNum = parseInt(currentWeek.split('-W')[1]);
-                const currentYear = parseInt(currentWeek.split('-W')[0]);
-                // Yılın gerçek hafta sayısını hesapla (52 veya 53)
+                
+                // Başlangıç yılının kalan haftalarını ekle
                 const getWeeksInYear = (year) => {
                     const dec31 = new Date(year, 11, 31);
                     const weekString = this.getWeekString(dec31);
@@ -421,10 +418,61 @@ class ChartManager {
                     }
                     return 52;
                 };
-                const currentYearLastWeek = getWeeksInYear(currentYear);
-                for (let i = Math.max(1, currentWeekNum - 2); i <= Math.min(currentYearLastWeek, currentWeekNum + 2); i++) {
-                    const weekString = `${currentYear}-W${String(i).padStart(2, '0')}`;
+                
+                const startYearLastWeek = getWeeksInYear(startYear);
+                
+                // Başlangıç yılının kalan haftaları
+                for (let i = startWeek; i <= startYearLastWeek; i++) {
+                    const weekString = `${startYear}-W${String(i).padStart(2, '0')}`;
                     allWeeks.push(weekString);
+                }
+                
+                // Ara yılların tüm haftaları (eğer varsa)
+                for (let year = startYear + 1; year < endYear; year++) {
+                    const yearLastWeek = getWeeksInYear(year);
+                    for (let i = 1; i <= yearLastWeek; i++) {
+                        const weekString = `${year}-W${String(i).padStart(2, '0')}`;
+                        allWeeks.push(weekString);
+                    }
+                }
+                
+                // Bitiş yılının haftaları
+                for (let i = 1; i <= endWeek; i++) {
+                    const weekString = `${endYear}-W${String(i).padStart(2, '0')}`;
+                    allWeeks.push(weekString);
+                }
+                
+                console.log('updateWeeksChart - Yıl değişimi ile haftalar üretildi:', allWeeks.length, 'hafta');
+                
+                // Eğer hala hafta yoksa, varsayılan aralığı kullan
+                if (allWeeks.length === 0) {
+                    console.warn('Hafta üretilemedi, varsayılan aralık kullanılıyor');
+                    const currentWeek = this.getWeekString(new Date());
+                    const currentWeekNum = parseInt(currentWeek.split('-W')[1]);
+                    const currentYear = parseInt(currentWeek.split('-W')[0]);
+                    // Yılın gerçek hafta sayısını hesapla (52 veya 53)
+                    const getWeeksInYearFallback = (year) => {
+                        const dec31 = new Date(year, 11, 31);
+                        const weekString = this.getWeekString(dec31);
+                        if (weekString) {
+                            const weekYear = parseInt(weekString.split('-W')[0]);
+                            const weekNum = parseInt(weekString.split('-W')[1]);
+                            if (weekYear !== year) {
+                                const dec28 = new Date(year, 11, 28);
+                                const weekString28 = this.getWeekString(dec28);
+                                if (weekString28) {
+                                    return parseInt(weekString28.split('-W')[1]);
+                                }
+                            }
+                            return weekNum;
+                        }
+                        return 52;
+                    };
+                    const currentYearLastWeek = getWeeksInYearFallback(currentYear);
+                    for (let i = Math.max(1, currentWeekNum - 2); i <= Math.min(currentYearLastWeek, currentWeekNum + 2); i++) {
+                        const weekString = `${currentYear}-W${String(i).padStart(2, '0')}`;
+                        allWeeks.push(weekString);
+                    }
                 }
             }
             
@@ -1111,11 +1159,38 @@ class ChartManager {
             return endWeek - startWeek + 1;
         } else {
             // Yıl değişimi varsa, başlangıç yılının kalan haftaları + ara yıllar + bitiş yılının haftaları
-            const startYearWeeks = 52 - startWeek + 1; // Başlangıç yılının kalan haftaları
+            // Yılın gerçek hafta sayısını hesapla (52 veya 53)
+            const getWeeksInYear = (year) => {
+                const dec31 = new Date(year, 11, 31);
+                const weekString = this.getWeekString(dec31);
+                if (weekString) {
+                    const weekYear = parseInt(weekString.split('-W')[0]);
+                    const weekNum = parseInt(weekString.split('-W')[1]);
+                    if (weekYear !== year) {
+                        const dec28 = new Date(year, 11, 28);
+                        const weekString28 = this.getWeekString(dec28);
+                        if (weekString28) {
+                            return parseInt(weekString28.split('-W')[1]);
+                        }
+                    }
+                    return weekNum;
+                }
+                return 52;
+            };
+            
+            const startYearLastWeek = getWeeksInYear(startYear);
+            const startYearWeeks = startYearLastWeek - startWeek + 1; // Başlangıç yılının kalan haftaları
             const middleYears = endYear - startYear - 1; // Ara yıllar
+            let middleYearsWeeks = 0;
+            
+            // Ara yılların haftalarını hesapla
+            for (let year = startYear + 1; year < endYear; year++) {
+                middleYearsWeeks += getWeeksInYear(year);
+            }
+            
             const endYearWeeks = endWeek; // Bitiş yılının haftaları
             
-            return startYearWeeks + (middleYears * 52) + endYearWeeks;
+            return startYearWeeks + middleYearsWeeks + endYearWeeks;
         }
     }
     
