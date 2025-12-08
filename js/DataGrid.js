@@ -24,6 +24,10 @@ class DataGrid {
             tarihBitis: ''
         };
         
+        // Gelişmiş filtreler
+        this.advancedFilters = [];
+        this.advancedFilterLogic = 'AND'; // AND veya OR
+        
         // Bölüm-Üst Makine-Makine Mapping (veritabanından yüklenecek)
         this.machineMapping = {};
         this.machineMappingLoaded = false;
@@ -178,6 +182,10 @@ class DataGrid {
                             <button type="button" id="transferDelayedBtn" class="action-btn" onclick="dataGrid.transferDelayedJobs()" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #f97316 100%); border: 2px solid rgba(249, 115, 22, 0.5);">
                                 <span class="btn-icon">⚠️</span>
                                 <span class="btn-text">Gecikmişleri Aktar</span>
+                            </button>
+                            <button type="button" id="advancedFilterBtn" class="action-btn" onclick="dataGrid.openAdvancedFilter()" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #6366f1 100%); border: 2px solid rgba(99, 102, 241, 0.5);">
+                                <span class="btn-icon">🔍</span>
+                                <span class="btn-text">Gelişmiş Filtreleme</span>
                             </button>
                         </div>
                     </div>
@@ -1388,8 +1396,134 @@ class DataGrid {
             return bolumMatch && ustMakineGrubuMatch && makinaMatch && firmaMatch && malzemeMatch && durumMatch && chartTarihMatch && tarihMatch && searchMatch;
         });
         
+        // Gelişmiş filtreleri uygula (filteredData üzerinde)
+        if (this.advancedFilters && this.advancedFilters.length > 0) {
+            this.filteredData = this.filteredData.filter(item => {
+                const results = this.advancedFilters.map(filter => this.evaluateAdvancedFilter(item, filter));
+                
+                // Mantık operatörüne göre sonuçları birleştir
+                if (this.advancedFilterLogic === 'OR') {
+                    return results.some(r => r === true);
+                } else {
+                    return results.every(r => r === true);
+                }
+            });
+        }
+        
         this.updateGrid();
         this.onDataFiltered(this.filteredData);
+    }
+
+    /**
+     * Gelişmiş filtre kuralını değerlendirir
+     */
+    evaluateAdvancedFilter(item, filter) {
+        const columnValue = item[filter.column];
+        const operator = filter.operator;
+        const value = filter.value;
+        const value2 = filter.value2;
+        
+        // Değer yoksa filtreleme yapma
+        if (value === '' || value === null || value === undefined) {
+            return true;
+        }
+        
+        const isNumeric = this.isNumericColumn(filter.column);
+        const isDate = this.isDateColumn(filter.column);
+        
+        // Değerleri uygun tipe dönüştür
+        let compareValue = value;
+        let compareValue2 = value2;
+        
+        if (isNumeric) {
+            compareValue = parseFloat(value);
+            compareValue2 = value2 ? parseFloat(value2) : null;
+            const itemValue = parseFloat(columnValue) || 0;
+            
+            switch (operator) {
+                case 'equals':
+                    return itemValue === compareValue;
+                case 'notEquals':
+                    return itemValue !== compareValue;
+                case 'greaterThan':
+                    return itemValue > compareValue;
+                case 'lessThan':
+                    return itemValue < compareValue;
+                case 'greaterThanOrEqual':
+                    return itemValue >= compareValue;
+                case 'lessThanOrEqual':
+                    return itemValue <= compareValue;
+                case 'between':
+                    if (!compareValue2) return true;
+                    return itemValue >= compareValue && itemValue <= compareValue2;
+                case 'notBetween':
+                    if (!compareValue2) return true;
+                    return itemValue < compareValue || itemValue > compareValue2;
+                default:
+                    return true;
+            }
+        } else if (isDate) {
+            const itemDate = columnValue ? new Date(columnValue) : null;
+            if (!itemDate || isNaN(itemDate.getTime())) return false;
+            
+            const filterDate = new Date(compareValue);
+            const filterDate2 = compareValue2 ? new Date(compareValue2) : null;
+            
+            // Tarihleri karşılaştırmak için sadece tarih kısmını al (saat bilgisini sıfırla)
+            const normalizeDate = (date) => {
+                const d = new Date(date);
+                d.setHours(0, 0, 0, 0);
+                return d;
+            };
+            
+            const itemDateNorm = normalizeDate(itemDate);
+            const filterDateNorm = normalizeDate(filterDate);
+            const filterDate2Norm = filterDate2 ? normalizeDate(filterDate2) : null;
+            
+            switch (operator) {
+                case 'equals':
+                    return itemDateNorm.getTime() === filterDateNorm.getTime();
+                case 'notEquals':
+                    return itemDateNorm.getTime() !== filterDateNorm.getTime();
+                case 'greaterThan':
+                    return itemDateNorm > filterDateNorm;
+                case 'lessThan':
+                    return itemDateNorm < filterDateNorm;
+                case 'greaterThanOrEqual':
+                    return itemDateNorm >= filterDateNorm;
+                case 'lessThanOrEqual':
+                    return itemDateNorm <= filterDateNorm;
+                case 'between':
+                    if (!filterDate2Norm) return true;
+                    return itemDateNorm >= filterDateNorm && itemDateNorm <= filterDate2Norm;
+                case 'notBetween':
+                    if (!filterDate2Norm) return true;
+                    return itemDateNorm < filterDateNorm || itemDateNorm > filterDate2Norm;
+                default:
+                    return true;
+            }
+        } else {
+            // Metin karşılaştırması
+            const itemStr = String(columnValue || '').toLowerCase();
+            const filterStr = String(compareValue || '').toLowerCase();
+            
+            switch (operator) {
+                case 'equals':
+                    return itemStr === filterStr;
+                case 'notEquals':
+                    return itemStr !== filterStr;
+                case 'contains':
+                    return itemStr.includes(filterStr);
+                case 'notContains':
+                    return !itemStr.includes(filterStr);
+                case 'startsWith':
+                    return itemStr.startsWith(filterStr);
+                case 'endsWith':
+                    return itemStr.endsWith(filterStr);
+                default:
+                    return true;
+            }
+        }
     }
     /**
      * Grid'i günceller
@@ -2402,7 +2536,7 @@ class DataGrid {
         if (!statsText) return;
         
         try {
-            // Tüm durum istatistiklerini hesapla
+            // Tüm durum istatistiklerini hesapla (updateGrid ile aynı mantık)
             const computePlannedSum = (it) => {
                 if (Array.isArray(it?.breakdowns)) {
                     return it.breakdowns
@@ -2413,18 +2547,26 @@ class DataGrid {
                 return Number(it?.planlananMiktar) || 0;
             };
             
-            const bekleyen = this.filteredData.filter(item => item.durum === 'Beklemede').length;
+            // Her item için durumu hesapla (updateGrid ile aynı mantık)
+            const bekleyen = this.filteredData.filter(item => {
+                const totalPlanned = computePlannedSum(item);
+                return totalPlanned === 0;
+            }).length;
             
             const planlandi = this.filteredData.filter(item => {
                 const totalPlanned = computePlannedSum(item);
-                const orderQty = Number(item.siparisMiktarHesaplanan || 0);
-                return totalPlanned > 0 && totalPlanned >= orderQty && orderQty > 0;
+                const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+                return totalPlanned > 0 && totalPlanned >= bakiyeMiktar && bakiyeMiktar > 0;
             }).length;
             
             const kismiPlanlandi = this.filteredData.filter(item => {
                 const totalPlanned = computePlannedSum(item);
-                const orderQty = Number(item.siparisMiktarHesaplanan || 0);
-                return totalPlanned > 0 && totalPlanned < orderQty && orderQty > 0;
+                const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
+                const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
+                const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
+                return totalPlanned > 0 && totalPlanned < bakiyeMiktar && bakiyeMiktar > 0;
             }).length;
             
             const tamamlandi = this.filteredData.filter(item => {
@@ -2439,7 +2581,7 @@ class DataGrid {
                 bugun.setHours(0, 0, 0, 0);
                 const totalPlanned = computePlannedSum(item);
                 const totalRealized = Number(item.gercekMiktar || 0);
-                return planlananTarih && planlananTarih < bugun && totalRealized < totalPlanned;
+                return planlananTarih && planlananTarih < bugun && !(totalPlanned > 0 && totalRealized >= totalPlanned) && totalRealized < totalPlanned;
             }).length;
             
             // Toplam değeri hesapla
@@ -13366,6 +13508,331 @@ class DataGrid {
             window.planningApp.showError('Toplu planlama hatası: ' + error.message);
         } finally {
             window.planningApp.hideLoading();
+        }
+    }
+
+    /**
+     * Gelişmiş filtreleme modalını açar
+     */
+    openAdvancedFilter() {
+        const modal = document.getElementById('advancedFilterModal');
+        if (!modal) return;
+        
+        modal.style.display = 'block';
+        
+        // Mevcut filtreleri yükle
+        this.renderAdvancedFilterRules();
+        
+        // Mantık operatörünü ayarla
+        const logicAND = document.getElementById('filterLogicAND');
+        const logicOR = document.getElementById('filterLogicOR');
+        if (logicAND && logicOR) {
+            if (this.advancedFilterLogic === 'OR') {
+                logicOR.checked = true;
+            } else {
+                logicAND.checked = true;
+            }
+        }
+        
+        // Modal dışına tıklandığında kapat
+        const handleModalClick = (e) => {
+            if (e.target === modal) {
+                closeAdvancedFilterModal();
+                modal.removeEventListener('click', handleModalClick);
+            }
+        };
+        modal.addEventListener('click', handleModalClick);
+    }
+
+    /**
+     * Gelişmiş filtre kurallarını render eder
+     */
+    renderAdvancedFilterRules() {
+        const container = document.getElementById('advancedFilterRules');
+        if (!container) return;
+        
+        if (this.advancedFilters.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #64748b; font-size: 14px;">Henüz filtre kuralı eklenmedi. Yeni kural eklemek için yukarıdaki butona tıklayın.</div>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        this.advancedFilters.forEach((filter, index) => {
+            const ruleElement = this.createFilterRuleElement(filter, index);
+            container.appendChild(ruleElement);
+        });
+    }
+
+    /**
+     * Filtre kuralı elementi oluşturur
+     */
+    createFilterRuleElement(filter, index) {
+        const div = document.createElement('div');
+        div.className = 'filter-rule-item';
+        div.dataset.index = index;
+        
+        const columns = this.getFilterableColumns();
+        const operators = this.getOperatorsForColumn(filter.column);
+        
+        div.innerHTML = `
+            <div class="rule-column">
+                <label>Sütun</label>
+                <select class="rule-column-select" onchange="dataGrid.updateFilterRule(${index}, 'column', this.value)">
+                    ${columns.map(col => `<option value="${col.key}" ${col.key === filter.column ? 'selected' : ''}>${col.label}</option>`).join('')}
+                </select>
+            </div>
+            <div class="rule-operator">
+                <label>Operatör</label>
+                <select class="rule-operator-select" onchange="dataGrid.updateFilterRule(${index}, 'operator', this.value)">
+                    ${operators.map(op => `<option value="${op.value}" ${op.value === filter.operator ? 'selected' : ''}>${op.label}</option>`).join('')}
+                </select>
+            </div>
+            <div class="rule-value">
+                ${this.getFilterValueInput(filter, index)}
+            </div>
+            <button type="button" class="rule-remove" onclick="dataGrid.removeFilterRule(${index})" title="Kuralı Sil">×</button>
+        `;
+        
+        return div;
+    }
+
+    /**
+     * Filtre değer input alanını oluşturur
+     */
+    getFilterValueInput(filter, index) {
+        const isRange = filter.operator === 'between' || filter.operator === 'notBetween';
+        const isDate = this.isDateColumn(filter.column);
+        const isNumeric = this.isNumericColumn(filter.column);
+        
+        if (isRange) {
+            if (isDate) {
+                return `
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Değer Aralığı</label>
+                    <div class="rule-value-range">
+                        <input type="date" class="rule-value-start" value="${filter.value || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value', this.value)" placeholder="Başlangıç">
+                        <span style="color: #64748b; margin: 0 4px; flex-shrink: 0;">-</span>
+                        <input type="date" class="rule-value-end" value="${filter.value2 || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value2', this.value)" placeholder="Bitiş">
+                    </div>
+                `;
+            } else {
+                return `
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Değer Aralığı</label>
+                    <div class="rule-value-range">
+                        <input type="${isNumeric ? 'number' : 'text'}" class="rule-value-start" value="${filter.value || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value', this.value)" placeholder="Min" step="${isNumeric ? '0.01' : ''}">
+                        <span style="color: #64748b; margin: 0 4px; flex-shrink: 0;">-</span>
+                        <input type="${isNumeric ? 'number' : 'text'}" class="rule-value-end" value="${filter.value2 || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value2', this.value)" placeholder="Max" step="${isNumeric ? '0.01' : ''}">
+                    </div>
+                `;
+            }
+        } else {
+            if (isDate) {
+                return `
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Değer</label>
+                    <input type="date" class="rule-value-single" value="${filter.value || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value', this.value)">
+                `;
+            } else {
+                return `
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px;">Değer</label>
+                    <input type="${isNumeric ? 'number' : 'text'}" class="rule-value-single" value="${filter.value || ''}" onchange="dataGrid.updateFilterRule(${index}, 'value', this.value)" placeholder="Değer girin" step="${isNumeric ? '0.01' : ''}">
+                `;
+            }
+        }
+    }
+
+    /**
+     * Filtrelenebilir sütunları döndürür
+     */
+    getFilterableColumns() {
+        return [
+            { key: 'planMiktar', label: 'Sipariş Miktar (Kalıp)' },
+            { key: 'siparisMiktarHesaplanan', label: 'Sipariş Miktar (Adet)' },
+            { key: 'sevkMiktari', label: 'Sevk Miktarı' },
+            { key: 'bakiyeMiktar', label: 'Bakiye Miktar' },
+            { key: 'figurSayisi', label: 'Figür Sayısı' },
+            { key: 'agirlik', label: 'Net Ağırlık' },
+            { key: 'brutAgirlik', label: 'Brüt Ağırlık' },
+            { key: 'planlananMiktar', label: 'Planlanan Miktar' },
+            { key: 'gercekMiktar', label: 'Gerçekleşen Miktar' },
+            { key: 'toplamSure', label: 'Toplam Süre' },
+            { key: 'planlananTarih', label: 'Planlanan Tarih' },
+            { key: 'onerilenTeslimTarih', label: 'Önerilen Teslim' },
+            { key: 'tarih', label: 'Sipariş Tarihi' },
+            { key: 'isemriNo', label: 'İş Emri No' },
+            { key: 'siparisNo', label: 'Sipariş No' },
+            { key: 'malhizKodu', label: 'Malzeme Kodu' },
+            { key: 'imalatTuru', label: 'Malzeme' },
+            { key: 'makAd', label: 'Makina Adı' },
+            { key: 'firmaAdi', label: 'Firma' },
+            { key: 'durum', label: 'Durum' }
+        ];
+    }
+
+    /**
+     * Sütun için uygun operatörleri döndürür
+     */
+    getOperatorsForColumn(columnKey) {
+        const isNumeric = this.isNumericColumn(columnKey);
+        const isDate = this.isDateColumn(columnKey);
+        const isText = !isNumeric && !isDate;
+        
+        if (isDate) {
+            return [
+                { value: 'equals', label: 'Eşittir' },
+                { value: 'notEquals', label: 'Eşit Değildir' },
+                { value: 'greaterThan', label: 'Büyüktür' },
+                { value: 'lessThan', label: 'Küçüktür' },
+                { value: 'greaterThanOrEqual', label: 'Büyük Eşittir' },
+                { value: 'lessThanOrEqual', label: 'Küçük Eşittir' },
+                { value: 'between', label: 'Aralığındadır' },
+                { value: 'notBetween', label: 'Aralığında Değildir' }
+            ];
+        } else if (isNumeric) {
+            return [
+                { value: 'equals', label: 'Eşittir' },
+                { value: 'notEquals', label: 'Eşit Değildir' },
+                { value: 'greaterThan', label: 'Büyüktür' },
+                { value: 'lessThan', label: 'Küçüktür' },
+                { value: 'greaterThanOrEqual', label: 'Büyük Eşittir' },
+                { value: 'lessThanOrEqual', label: 'Küçük Eşittir' },
+                { value: 'between', label: 'Aralığındadır' },
+                { value: 'notBetween', label: 'Aralığında Değildir' }
+            ];
+        } else {
+            return [
+                { value: 'equals', label: 'Eşittir' },
+                { value: 'notEquals', label: 'Eşit Değildir' },
+                { value: 'contains', label: 'İçerir' },
+                { value: 'notContains', label: 'İçermez' },
+                { value: 'startsWith', label: 'İle Başlar' },
+                { value: 'endsWith', label: 'İle Biter' }
+            ];
+        }
+    }
+
+    /**
+     * Sütunun sayısal olup olmadığını kontrol eder
+     */
+    isNumericColumn(columnKey) {
+        const numericColumns = [
+            'planMiktar', 
+            'siparisMiktarHesaplanan', 
+            'sevkMiktari', 
+            'bakiyeMiktar', 
+            'figurSayisi',
+            'agirlik', 
+            'brutAgirlik', 
+            'planlananMiktar', 
+            'gercekMiktar', 
+            'toplamSure'
+        ];
+        return numericColumns.includes(columnKey);
+    }
+
+    /**
+     * Sütunun tarih olup olmadığını kontrol eder
+     */
+    isDateColumn(columnKey) {
+        const dateColumns = ['planlananTarih', 'onerilenTeslimTarih', 'tarih'];
+        return dateColumns.includes(columnKey);
+    }
+
+    /**
+     * Yeni filtre kuralı ekler
+     */
+    addAdvancedFilterRule() {
+        const defaultColumn = 'siparisMiktarHesaplanan';
+        this.advancedFilters.push({
+            column: defaultColumn,
+            operator: 'greaterThan',
+            value: '',
+            value2: ''
+        });
+        this.renderAdvancedFilterRules();
+    }
+
+    /**
+     * Filtre kuralını günceller
+     */
+    updateFilterRule(index, field, value) {
+        if (!this.advancedFilters[index]) return;
+        
+        if (field === 'column') {
+            // Sütun değiştiğinde operatörü ve değerleri sıfırla
+            this.advancedFilters[index].column = value;
+            const operators = this.getOperatorsForColumn(value);
+            this.advancedFilters[index].operator = operators[0].value;
+            this.advancedFilters[index].value = '';
+            this.advancedFilters[index].value2 = '';
+            // Render'ı yenile
+            this.renderAdvancedFilterRules();
+        } else if (field === 'operator') {
+            const oldOperator = this.advancedFilters[index].operator;
+            const wasRange = oldOperator === 'between' || oldOperator === 'notBetween';
+            const isRange = value === 'between' || value === 'notBetween';
+            
+            // Operatörü güncelle
+            this.advancedFilters[index].operator = value;
+            
+            // Eğer aralık operatörüne geçiliyorsa ve value2 yoksa, boş string olarak ayarla
+            if (isRange && !wasRange) {
+                if (this.advancedFilters[index].value2 === undefined || this.advancedFilters[index].value2 === null) {
+                    this.advancedFilters[index].value2 = '';
+                }
+            }
+            // Eğer aralık operatöründen çıkılıyorsa, value2'yi temizle
+            if (!isRange && wasRange) {
+                this.advancedFilters[index].value2 = '';
+            }
+            
+            // Render'ı yenile (aralık için iki input gerekebilir)
+            this.renderAdvancedFilterRules();
+        } else if (field === 'value') {
+            this.advancedFilters[index].value = value;
+        } else if (field === 'value2') {
+            this.advancedFilters[index].value2 = value;
+        }
+    }
+
+    /**
+     * Filtre kuralını kaldırır
+     */
+    removeFilterRule(index) {
+        this.advancedFilters.splice(index, 1);
+        this.renderAdvancedFilterRules();
+    }
+
+    /**
+     * Gelişmiş filtreleri uygular
+     */
+    applyAdvancedFilters() {
+        // Mantık operatörünü al
+        const logicAND = document.getElementById('filterLogicAND');
+        this.advancedFilterLogic = logicAND && logicAND.checked ? 'AND' : 'OR';
+        
+        // Filtreleri uygula
+        this.applyFilters();
+        
+        // Modal'ı kapat
+        closeAdvancedFilterModal();
+        
+        // Başarı mesajı
+        if (window.planningApp) {
+            const count = this.advancedFilters.length;
+            window.planningApp.showSuccess(`${count} gelişmiş filtre kuralı uygulandı. ${this.filteredData.length} kayıt gösteriliyor.`);
+        }
+    }
+
+    /**
+     * Gelişmiş filtreleri temizler
+     */
+    clearAdvancedFilters() {
+        this.advancedFilters = [];
+        this.advancedFilterLogic = 'AND';
+        this.renderAdvancedFilterRules();
+        this.applyFilters();
+        
+        if (window.planningApp) {
+            window.planningApp.showSuccess('Gelişmiş filtreler temizlendi.');
         }
     }
 }
