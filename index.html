@@ -331,6 +331,154 @@
             --style-transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* Stil 5: Elegant */
+        [data-style="elegant"] {
+            --style-font-family: 'Georgia', 'Times New Roman', serif;
+            --style-border-radius: 8px;
+            --style-border-radius-small: 4px;
+            --style-border-radius-large: 12px;
+            --style-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            --style-shadow-small: 0 1px 4px rgba(0, 0, 0, 0.08);
+            --style-shadow-large: 0 4px 16px rgba(0, 0, 0, 0.15);
+            --style-spacing: 18px;
+            --style-spacing-small: 9px;
+            --style-spacing-large: 28px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 2px;
+            --style-transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* Stil 6: Rounded */
+        [data-style="rounded"] {
+            --style-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --style-border-radius: 24px;
+            --style-border-radius-small: 16px;
+            --style-border-radius-large: 32px;
+            --style-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+            --style-shadow-small: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --style-shadow-large: 0 8px 28px rgba(0, 0, 0, 0.18);
+            --style-spacing: 20px;
+            --style-spacing-small: 12px;
+            --style-spacing-large: 32px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 2px;
+            --style-transition: all 0.3s ease-out;
+        }
+
+        /* Stil 7: Flat */
+        [data-style="flat"] {
+            --style-font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            --style-border-radius: 0px;
+            --style-border-radius-small: 0px;
+            --style-border-radius-large: 0px;
+            --style-shadow: none;
+            --style-shadow-small: none;
+            --style-shadow-large: none;
+            --style-spacing: 16px;
+            --style-spacing-small: 8px;
+            --style-spacing-large: 24px;
+            --style-border-width: 2px;
+            --style-border-width-thick: 3px;
+            --style-transition: all 0.2s linear;
+        }
+
+        /* Stil 8: Glassmorphism */
+        [data-style="glassmorphism"] {
+            --style-font-family: 'Inter', 'Segoe UI', sans-serif;
+            --style-border-radius: 20px;
+            --style-border-radius-small: 12px;
+            --style-border-radius-large: 28px;
+            --style-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --style-shadow-small: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --style-shadow-large: 0 12px 48px rgba(0, 0, 0, 0.15);
+            --style-spacing: 20px;
+            --style-spacing-small: 12px;
+            --style-spacing-large: 32px;
+            --style-border-width: 1px;
+            --style-border-width-thick: 1px;
+            --style-transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* Stil 9: Neumorphism */
+        [data-style="neumorphism"] {
+            --style-font-family: 'Poppins', 'Segoe UI', sans-serif;
+            --style-border-radius: 20px;
+            --style-border-radius-small: 12px;
+            --style-border-radius-large: 28px;
+            --style-shadow: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.8);
+            --style-shadow-small: 4px 4px 8px rgba(0, 0, 0, 0.08), -4px -4px 8px rgba(255, 255, 255, 0.8);
+            --style-shadow-large: 12px 12px 24px rgba(0, 0, 0, 0.12), -12px -12px 24px rgba(255, 255, 255, 0.9);
+            --style-spacing: 20px;
+            --style-spacing-small: 12px;
+            --style-spacing-large: 32px;
+            --style-border-width: 0px;
+            --style-border-width-thick: 0px;
+            --style-transition: all 0.3s ease;
+        }
+
+        /* Glassmorphism Özel Stiller */
+        [data-style="glassmorphism"] .modal-content,
+        [data-style="glassmorphism"] .card,
+        [data-style="glassmorphism"] .info-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        [data-style="glassmorphism"] .modal-header {
+            background: rgba(64, 145, 108, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        [data-style="glassmorphism"] button:not(.close):not(.theme-selector-close):not(.style-selector-close) {
+            background: rgba(64, 145, 108, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        [data-style="glassmorphism"] button:hover:not(.close):not(.theme-selector-close):not(.style-selector-close) {
+            background: rgba(64, 145, 108, 0.8);
+        }
+
+        /* Neumorphism Özel Stiller */
+        [data-style="neumorphism"] .modal-content,
+        [data-style="neumorphism"] .card,
+        [data-style="neumorphism"] .info-card {
+            background: #e0e0e0;
+            box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.8);
+            border: none;
+        }
+
+        [data-style="neumorphism"] .modal-header {
+            background: #e0e0e0;
+            box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        [data-style="neumorphism"] button:not(.close):not(.theme-selector-close):not(.style-selector-close) {
+            background: #e0e0e0;
+            box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.1), -4px -4px 8px rgba(255, 255, 255, 0.8);
+            border: none;
+        }
+
+        [data-style="neumorphism"] button:active:not(.close):not(.theme-selector-close):not(.style-selector-close) {
+            box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+        }
+
+        [data-style="neumorphism"] input[type="text"],
+        [data-style="neumorphism"] input[type="number"],
+        [data-style="neumorphism"] input[type="date"],
+        [data-style="neumorphism"] select,
+        [data-style="neumorphism"] textarea {
+            background: #e0e0e0;
+            box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.1), inset -4px -4px 8px rgba(255, 255, 255, 0.8);
+            border: none;
+        }
+
         /* Toast Notification Sistemi */
         .toast-container {
             position: fixed;
@@ -7064,6 +7212,31 @@
                         <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; height: 60px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2); border: 2px solid #333;"></div>
                         <div class="theme-name">Bold</div>
                         <div style="font-size: 11px; color: #999; margin-top: 4px;">Kalın çizgiler, belirgin gölgeler</div>
+                    </div>
+                    <div class="style-option" data-style="elegant" onclick="setStyle('elegant')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #d4af37 0%, #f4e4bc 100%); border-radius: 8px; height: 60px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); border: 1px solid rgba(212, 175, 55, 0.3);"></div>
+                        <div class="theme-name">Elegant</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Zarif, ince çizgiler, hafif gölgeler</div>
+                    </div>
+                    <div class="style-option" data-style="rounded" onclick="setStyle('rounded')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 24px; height: 60px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);"></div>
+                        <div class="theme-name">Rounded</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Çok yuvarlatılmış köşeler</div>
+                    </div>
+                    <div class="style-option" data-style="flat" onclick="setStyle('flat')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0px; height: 60px; border: 2px solid #333;"></div>
+                        <div class="theme-name">Flat</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Düz, gölgesiz, minimal</div>
+                    </div>
+                    <div class="style-option" data-style="glassmorphism" onclick="setStyle('glassmorphism')">
+                        <div class="style-preview" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%); backdrop-filter: blur(10px); border-radius: 20px; height: 60px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.3);"></div>
+                        <div class="theme-name">Glassmorphism</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Cam efekti, şeffaf arka plan</div>
+                    </div>
+                    <div class="style-option" data-style="neumorphism" onclick="setStyle('neumorphism')">
+                        <div class="style-preview" style="background: #e0e0e0; border-radius: 20px; height: 60px; box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.8);"></div>
+                        <div class="theme-name">Neumorphism</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">Yumuşak gölgeler, 3D efekt</div>
                     </div>
                 </div>
             </div>

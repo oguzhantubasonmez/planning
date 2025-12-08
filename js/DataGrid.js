@@ -1311,45 +1311,55 @@ class DataGrid {
                     return normalizedDate >= filterStartDate && normalizedDate <= filterEndDate;
                 };
                 
+                // Hem ana kayıt planlanan tarihini hem de breakdown tarihlerini kontrol et
+                let mainDateMatch = false;
                 if (item.planlananTarih) {
-                    chartTarihMatch = checkDate(item.planlananTarih);
-                } else if (item.breakdowns && item.breakdowns.length > 0) {
-                    chartTarihMatch = item.breakdowns.some(b => b.planTarihi && checkDate(b.planTarihi));
-                } else {
-                    chartTarihMatch = false;
+                    mainDateMatch = checkDate(item.planlananTarih);
                 }
+                
+                let breakdownDateMatch = false;
+                if (item.breakdowns && item.breakdowns.length > 0) {
+                    breakdownDateMatch = item.breakdowns.some(b => b.planTarihi && checkDate(b.planTarihi));
+                }
+                
+                // Ana tarih VEYA breakdown tarihlerinden herhangi biri eşleşirse göster
+                chartTarihMatch = mainDateMatch || breakdownDateMatch;
             }
             
             // Tarih filtresi - planlanan tarih aralığında mı kontrol et
             let tarihMatch = true;
             if (!this.chartDateFilter.enabled && this.dateRange.startDate && this.dateRange.endDate) {
-                // Ana kayıt planlanan tarihi kontrol et
+                const baslangicTarih = new Date(this.dateRange.startDate);
+                const bitisTarih = new Date(this.dateRange.endDate);
+                baslangicTarih.setHours(0, 0, 0, 0);
+                bitisTarih.setHours(23, 59, 59, 999);
+                
+                // Hem ana kayıt planlanan tarihini hem de breakdown tarihlerini kontrol et
+                let mainDateMatch = false;
                 if (item.planlananTarih) {
                     const planlananTarih = new Date(item.planlananTarih);
-                    const baslangicTarih = new Date(this.dateRange.startDate);
-                    const bitisTarih = new Date(this.dateRange.endDate);
-                    baslangicTarih.setHours(0, 0, 0, 0);
-                    bitisTarih.setHours(23, 59, 59, 999);
                     planlananTarih.setHours(0, 0, 0, 0);
-                    tarihMatch = planlananTarih >= baslangicTarih && planlananTarih <= bitisTarih;
-                } else {
-                    // Ana kayıtta planlanan tarih yoksa, breakdown'larda ara
-                    if (item.breakdowns && item.breakdowns.length > 0) {
-                        tarihMatch = item.breakdowns.some(breakdown => {
-                            if (breakdown.planTarihi) {
-                                const breakdownTarih = new Date(breakdown.planTarihi);
-                                const baslangicTarih = new Date(this.dateRange.startDate);
-                                const bitisTarih = new Date(this.dateRange.endDate);
-                                baslangicTarih.setHours(0, 0, 0, 0);
-                                bitisTarih.setHours(23, 59, 59, 999);
-                                breakdownTarih.setHours(0, 0, 0, 0);
-                                return breakdownTarih >= baslangicTarih && breakdownTarih <= bitisTarih;
-                            }
-                            return false;
-                        });
-                    } else {
-                        tarihMatch = false; // Planlanan tarih yoksa filtreleme dışında bırak
-                    }
+                    mainDateMatch = planlananTarih >= baslangicTarih && planlananTarih <= bitisTarih;
+                }
+                
+                let breakdownDateMatch = false;
+                if (item.breakdowns && item.breakdowns.length > 0) {
+                    breakdownDateMatch = item.breakdowns.some(breakdown => {
+                        if (breakdown.planTarihi) {
+                            const breakdownTarih = new Date(breakdown.planTarihi);
+                            breakdownTarih.setHours(0, 0, 0, 0);
+                            return breakdownTarih >= baslangicTarih && breakdownTarih <= bitisTarih;
+                        }
+                        return false;
+                    });
+                }
+                
+                // Ana tarih VEYA breakdown tarihlerinden herhangi biri eşleşirse göster
+                tarihMatch = mainDateMatch || breakdownDateMatch;
+                
+                // Eğer hiç planlanan tarih yoksa (ne ana ne breakdown), filtreleme dışında bırak
+                if (!item.planlananTarih && (!item.breakdowns || item.breakdowns.length === 0)) {
+                    tarihMatch = false;
                 }
             }
             
@@ -13037,14 +13047,36 @@ class DataGrid {
     showBulkPlanningDialog() {
         // Seçili planlanmamış işleri bul
         const unplannedItems = [];
-        this.filteredData.forEach(item => {
-            // Sadece "Beklemede" durumundaki işleri al
-            if (item.durum === 'Beklemede') {
-                // Checkbox ile seçilmiş mi kontrol et
-                const key = `unplanned_${item.isemriId}`;
-                if (this.selectedRows.has(key)) {
-                    unplannedItems.push(item);
+        
+        // Önce selectedRows'tan unplanned key'lerini topla
+        const selectedUnplannedIds = [];
+        this.selectedRows.forEach(key => {
+            if (typeof key === 'string' && key.startsWith('unplanned_')) {
+                const isemriId = parseInt(key.replace('unplanned_', ''));
+                if (!isNaN(isemriId)) {
+                    selectedUnplannedIds.push(isemriId);
                 }
+            }
+        });
+        
+        if (selectedUnplannedIds.length === 0) {
+            window.planningApp?.showWarning('Lütfen planlanmamış (Beklemede) işlerden en az birini seçin');
+            return;
+        }
+        
+        // Hem filteredData hem de data'dan seçili işleri bul
+        const allData = [...this.filteredData, ...this.data];
+        const uniqueDataMap = new Map();
+        allData.forEach(item => {
+            if (!uniqueDataMap.has(item.isemriId)) {
+                uniqueDataMap.set(item.isemriId, item);
+            }
+        });
+        
+        selectedUnplannedIds.forEach(isemriId => {
+            const item = uniqueDataMap.get(isemriId);
+            if (item && item.durum === 'Beklemede') {
+                unplannedItems.push(item);
             }
         });
         
@@ -13130,7 +13162,7 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.imalatTuru || item.malhizAdi || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.malhizKodu || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.firmaAdi || '-'}</td>`;
-            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${siparisMiktar}</td>`;
+            html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${siparisMiktarHesaplanan}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
                 <input type="date" 
                        class="bulk-planning-date-input" 
@@ -13156,7 +13188,7 @@ class DataGrid {
                        data-isemri-id="${item.isemriId}"
                        value="${waitingMiktar}" 
                        min="1"
-                       max="${siparisMiktar}"
+                       max="${siparisMiktarHesaplanan}"
                        style="width: 90px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; text-align: center; transition: border-color 0.2s ease; box-sizing: border-box;"
                        onfocus="this.style.borderColor='#40916c'; this.style.boxShadow='0 0 0 3px rgba(64, 145, 108, 0.1)';" 
                        onblur="this.style.borderColor='#cbd5e0'; this.style.boxShadow='none';" />
