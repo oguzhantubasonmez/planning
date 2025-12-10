@@ -105,6 +105,28 @@ class DataGrid {
         this.bindEvents();
         this.setupColumnVisibility();
         this.applyColumnVisibilitySettings();
+        
+        // Tarih filtrelerini flatpickr ile başlat
+        this.initDateFilters();
+    }
+    
+    /**
+     * Tarih filtrelerini flatpickr ile başlatır
+     */
+    initDateFilters() {
+        // Sayfa yüklendiğinde veya DOM hazır olduğunda çalıştır
+        setTimeout(() => {
+            const startDateFilter = document.getElementById('startDateFilter');
+            const endDateFilter = document.getElementById('endDateFilter');
+            
+            if (startDateFilter && window.initFlatpickr) {
+                window.initFlatpickr(startDateFilter);
+            }
+            
+            if (endDateFilter && window.initFlatpickr) {
+                window.initFlatpickr(endDateFilter);
+            }
+        }, 100);
     }
     /**
      * Tablo yapısını oluşturur
@@ -200,9 +222,9 @@ class DataGrid {
                 </div>
                 <div class="filter-row date-filter-row">
                     <label for="startDateFilter">Planlanan Tarih Başlangıç:</label>
-                    <input type="date" id="startDateFilter" />
+                    <input type="text" id="startDateFilter" placeholder="gg . aa . yyyy" />
                     <label for="endDateFilter">Planlanan Tarih Bitiş:</label>
-                    <input type="date" id="endDateFilter" />
+                    <input type="text" id="endDateFilter" placeholder="gg . aa . yyyy" />
                     <button id="applyDateFilter" onclick="dataGrid.applyDateFilter()">Tarih Filtresini Uygula</button>
                     <button id="resetDateFilter" onclick="dataGrid.resetDateFilter()">Filtreyi Sıfırla</button>
                     <button id="toggleAllBtn" type="button" class="toggle-chip" title="Kırılımları Aç/Kapat">▼ Kırılımları Aç</button>
@@ -926,8 +948,34 @@ class DataGrid {
      */
     getCurrentFilters() {
         return {
-            startDate: document.getElementById('startDateFilter')?.value || null,
-            endDate: document.getElementById('endDateFilter')?.value || null,
+            startDate: (() => {
+                let date = document.getElementById('startDateFilter')?.value || null;
+                // Flatpickr'dan gelen tarih d/m/Y formatında, YYYY-MM-DD formatına çevir
+                if (date && date.includes('/')) {
+                    const parts = date.split('/');
+                    if (parts.length === 3) {
+                        const day = parts[0].padStart(2, '0');
+                        const month = parts[1].padStart(2, '0');
+                        const year = parts[2];
+                        date = `${year}-${month}-${day}`;
+                    }
+                }
+                return date;
+            })(),
+            endDate: (() => {
+                let date = document.getElementById('endDateFilter')?.value || null;
+                // Flatpickr'dan gelen tarih d/m/Y formatında, YYYY-MM-DD formatına çevir
+                if (date && date.includes('/')) {
+                    const parts = date.split('/');
+                    if (parts.length === 3) {
+                        const day = parts[0].padStart(2, '0');
+                        const month = parts[1].padStart(2, '0');
+                        const year = parts[2];
+                        date = `${year}-${month}-${day}`;
+                    }
+                }
+                return date;
+            })(),
             bolum: document.getElementById('bolumFilter')?.value || '',
             ustMakineGrubu: document.getElementById('ustMakineFilter')?.value || '',
             makina: document.getElementById('makinaFilter')?.value || '',
@@ -1412,118 +1460,6 @@ class DataGrid {
         
         this.updateGrid();
         this.onDataFiltered(this.filteredData);
-    }
-
-    /**
-     * Gelişmiş filtre kuralını değerlendirir
-     */
-    evaluateAdvancedFilter(item, filter) {
-        const columnValue = item[filter.column];
-        const operator = filter.operator;
-        const value = filter.value;
-        const value2 = filter.value2;
-        
-        // Değer yoksa filtreleme yapma
-        if (value === '' || value === null || value === undefined) {
-            return true;
-        }
-        
-        const isNumeric = this.isNumericColumn(filter.column);
-        const isDate = this.isDateColumn(filter.column);
-        
-        // Değerleri uygun tipe dönüştür
-        let compareValue = value;
-        let compareValue2 = value2;
-        
-        if (isNumeric) {
-            compareValue = parseFloat(value);
-            compareValue2 = value2 ? parseFloat(value2) : null;
-            const itemValue = parseFloat(columnValue) || 0;
-            
-            switch (operator) {
-                case 'equals':
-                    return itemValue === compareValue;
-                case 'notEquals':
-                    return itemValue !== compareValue;
-                case 'greaterThan':
-                    return itemValue > compareValue;
-                case 'lessThan':
-                    return itemValue < compareValue;
-                case 'greaterThanOrEqual':
-                    return itemValue >= compareValue;
-                case 'lessThanOrEqual':
-                    return itemValue <= compareValue;
-                case 'between':
-                    if (!compareValue2) return true;
-                    return itemValue >= compareValue && itemValue <= compareValue2;
-                case 'notBetween':
-                    if (!compareValue2) return true;
-                    return itemValue < compareValue || itemValue > compareValue2;
-                default:
-                    return true;
-            }
-        } else if (isDate) {
-            const itemDate = columnValue ? new Date(columnValue) : null;
-            if (!itemDate || isNaN(itemDate.getTime())) return false;
-            
-            const filterDate = new Date(compareValue);
-            const filterDate2 = compareValue2 ? new Date(compareValue2) : null;
-            
-            // Tarihleri karşılaştırmak için sadece tarih kısmını al (saat bilgisini sıfırla)
-            const normalizeDate = (date) => {
-                const d = new Date(date);
-                d.setHours(0, 0, 0, 0);
-                return d;
-            };
-            
-            const itemDateNorm = normalizeDate(itemDate);
-            const filterDateNorm = normalizeDate(filterDate);
-            const filterDate2Norm = filterDate2 ? normalizeDate(filterDate2) : null;
-            
-            switch (operator) {
-                case 'equals':
-                    return itemDateNorm.getTime() === filterDateNorm.getTime();
-                case 'notEquals':
-                    return itemDateNorm.getTime() !== filterDateNorm.getTime();
-                case 'greaterThan':
-                    return itemDateNorm > filterDateNorm;
-                case 'lessThan':
-                    return itemDateNorm < filterDateNorm;
-                case 'greaterThanOrEqual':
-                    return itemDateNorm >= filterDateNorm;
-                case 'lessThanOrEqual':
-                    return itemDateNorm <= filterDateNorm;
-                case 'between':
-                    if (!filterDate2Norm) return true;
-                    return itemDateNorm >= filterDateNorm && itemDateNorm <= filterDate2Norm;
-                case 'notBetween':
-                    if (!filterDate2Norm) return true;
-                    return itemDateNorm < filterDateNorm || itemDateNorm > filterDate2Norm;
-                default:
-                    return true;
-            }
-        } else {
-            // Metin karşılaştırması
-            const itemStr = String(columnValue || '').toLowerCase();
-            const filterStr = String(compareValue || '').toLowerCase();
-            
-            switch (operator) {
-                case 'equals':
-                    return itemStr === filterStr;
-                case 'notEquals':
-                    return itemStr !== filterStr;
-                case 'contains':
-                    return itemStr.includes(filterStr);
-                case 'notContains':
-                    return !itemStr.includes(filterStr);
-                case 'startsWith':
-                    return itemStr.startsWith(filterStr);
-                case 'endsWith':
-                    return itemStr.endsWith(filterStr);
-                default:
-                    return true;
-            }
-        }
     }
     /**
      * Grid'i günceller
@@ -2536,7 +2472,7 @@ class DataGrid {
         if (!statsText) return;
         
         try {
-            // Tüm durum istatistiklerini hesapla (updateGrid ile aynı mantık)
+            // Tüm durum istatistiklerini hesapla
             const computePlannedSum = (it) => {
                 if (Array.isArray(it?.breakdowns)) {
                     return it.breakdowns
@@ -2547,26 +2483,18 @@ class DataGrid {
                 return Number(it?.planlananMiktar) || 0;
             };
             
-            // Her item için durumu hesapla (updateGrid ile aynı mantık)
-            const bekleyen = this.filteredData.filter(item => {
-                const totalPlanned = computePlannedSum(item);
-                return totalPlanned === 0;
-            }).length;
+            const bekleyen = this.filteredData.filter(item => item.durum === 'Beklemede').length;
             
             const planlandi = this.filteredData.filter(item => {
                 const totalPlanned = computePlannedSum(item);
-                const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
-                const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
-                const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
-                return totalPlanned > 0 && totalPlanned >= bakiyeMiktar && bakiyeMiktar > 0;
+                const orderQty = Number(item.siparisMiktarHesaplanan || 0);
+                return totalPlanned > 0 && totalPlanned >= orderQty && orderQty > 0;
             }).length;
             
             const kismiPlanlandi = this.filteredData.filter(item => {
                 const totalPlanned = computePlannedSum(item);
-                const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
-                const sevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
-                const bakiyeMiktar = Math.max(0, siparisMiktarHesaplanan - sevkMiktari);
-                return totalPlanned > 0 && totalPlanned < bakiyeMiktar && bakiyeMiktar > 0;
+                const orderQty = Number(item.siparisMiktarHesaplanan || 0);
+                return totalPlanned > 0 && totalPlanned < orderQty && orderQty > 0;
             }).length;
             
             const tamamlandi = this.filteredData.filter(item => {
@@ -2581,7 +2509,7 @@ class DataGrid {
                 bugun.setHours(0, 0, 0, 0);
                 const totalPlanned = computePlannedSum(item);
                 const totalRealized = Number(item.gercekMiktar || 0);
-                return planlananTarih && planlananTarih < bugun && !(totalPlanned > 0 && totalRealized >= totalPlanned) && totalRealized < totalPlanned;
+                return planlananTarih && planlananTarih < bugun && totalRealized < totalPlanned;
             }).length;
             
             // Toplam değeri hesapla
@@ -2941,8 +2869,30 @@ class DataGrid {
      * Tarih filtresini uygular (Planlanan Tarih alanında arama)
      */
     applyDateFilter() {
-        const startDate = document.getElementById('startDateFilter').value;
-        const endDate = document.getElementById('endDateFilter').value;
+        let startDate = document.getElementById('startDateFilter').value;
+        let endDate = document.getElementById('endDateFilter').value;
+        
+        // Flatpickr'dan gelen tarih d/m/Y formatında, YYYY-MM-DD formatına çevir
+        if (startDate && startDate.includes('/')) {
+            const parts = startDate.split('/');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                startDate = `${year}-${month}-${day}`;
+            }
+        }
+        
+        if (endDate && endDate.includes('/')) {
+            const parts = endDate.split('/');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                endDate = `${year}-${month}-${day}`;
+            }
+        }
+        
         if (!startDate || !endDate) {
             window.planningApp.showWarning('Lütfen başlangıç ve bitiş tarihlerini seçin');
             return;
@@ -2960,8 +2910,22 @@ class DataGrid {
      * Tarih filtresini sıfırlar (diğer filtreleri korur)
      */
     resetDateFilter() {
-        document.getElementById('startDateFilter').value = '';
-        document.getElementById('endDateFilter').value = '';
+        const startDateFilter = document.getElementById('startDateFilter');
+        const endDateFilter = document.getElementById('endDateFilter');
+        
+        // Flatpickr instance'larını temizle
+        if (startDateFilter && startDateFilter._flatpickr) {
+            startDateFilter._flatpickr.clear();
+        } else if (startDateFilter) {
+            startDateFilter.value = '';
+        }
+        
+        if (endDateFilter && endDateFilter._flatpickr) {
+            endDateFilter._flatpickr.clear();
+        } else if (endDateFilter) {
+            endDateFilter.value = '';
+        }
+        
         this.dateRange.startDate = '';
         this.dateRange.endDate = '';
         // Sadece tarih filtresini kaldır, diğer filtreleri koru
@@ -3531,7 +3495,34 @@ class DataGrid {
         }
         
         const planningTarih = modal.querySelector('#planningTarih');
-        if (planningTarih) planningTarih.value = defaultTarih;
+        if (planningTarih) {
+            // Başlangıç değerini d/m/Y formatına çevir
+            let formattedDate = '';
+            if (defaultTarih) {
+                const date = new Date(defaultTarih);
+                if (!isNaN(date.getTime())) {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    formattedDate = `${day}/${month}/${year}`;
+                }
+            }
+            planningTarih.value = formattedDate;
+            
+            // Flatpickr ile başlat (başlangıçta default makine varsa onu kullan)
+            if (window.initFlatpickr) {
+                const isemriId = item.isemriId || item.id;
+                if (isemriId && window.initFlatpickrWithPlanningColors) {
+                    // isemriId'yi input'a kaydet (makine değiştiğinde kullanmak için)
+                    planningTarih.dataset.isemriId = isemriId;
+                    // Default makineyi al (eğer varsa) - makine seçimi eklendikten sonra güncellenecek
+                    // Şimdilik null geç, makine seçimi eklendikten sonra güncellenecek
+                    window.initFlatpickrWithPlanningColors(planningTarih, isemriId, null);
+                } else {
+                    window.initFlatpickr(planningTarih);
+                }
+            }
+        }
         
         // Bakiye miktarı hesapla (sipariş miktarı - sevk miktarı)
         const siparisMiktarHesaplanan = item.siparisMiktarHesaplanan || 0;
@@ -4563,7 +4554,7 @@ class DataGrid {
                 </select>
             </td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
-                <input type="date" 
+                <input type="text" 
                        class="stage-date-input" 
                        data-isemri-id="${stage.isemriId}"
                        data-isemri-sira="${stage.isemriSira || 0}"
@@ -4597,8 +4588,34 @@ class DataGrid {
         html += '</tbody></table>';
         stagesList.innerHTML = html;
         
-        // Her aşama için makine dropdown'ını doldur
-        this.populateStageMachineDropdowns(modal, plannedStages);
+        // Her aşama için makine dropdown'ını doldur (önce makine dropdown'ları doldur, sonra Flatpickr başlat)
+        this.populateStageMachineDropdowns(modal, plannedStages).then(() => {
+            // Tarih input'larını flatpickr ile başlat (makine seçimine göre renklendirme ile)
+            const dateInputs = stagesList.querySelectorAll('.stage-date-input');
+            dateInputs.forEach(input => {
+                const isemriId = input.dataset.isemriId ? parseInt(input.dataset.isemriId) : null;
+                if (window.initFlatpickrWithPlanningColors && isemriId) {
+                    // Aynı satırdaki makine seçimini bul
+                    const row = input.closest('tr');
+                    const machineSelect = row ? row.querySelector('.stage-machine-input') : null;
+                    const selectedMachine = machineSelect ? machineSelect.value : null;
+                    
+                    // Makine seçimi değiştiğinde Flatpickr'ı güncelle
+                    if (machineSelect) {
+                        machineSelect.addEventListener('change', async () => {
+                            const newSelectedMachine = machineSelect.value;
+                            if (window.initFlatpickrWithPlanningColors) {
+                                await window.initFlatpickrWithPlanningColors(input, isemriId, newSelectedMachine);
+                            }
+                        });
+                    }
+                    
+                    window.initFlatpickrWithPlanningColors(input, isemriId, selectedMachine);
+                } else if (window.initFlatpickr) {
+                    window.initFlatpickr(input);
+                }
+            });
+        });
         
         // Checkbox değişikliklerini dinle - satır görünümünü güncelle
         const checkboxes = stagesList.querySelectorAll('.stage-checkbox');
@@ -4727,7 +4744,17 @@ class DataGrid {
             
             const planId = input.dataset.planId;
             const originalDate = input.dataset.originalDate;
-            const planTarihi = input.value;
+            let planTarihi = input.value;
+            // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+            if (planTarihi && planTarihi.includes('/')) {
+                const parts = planTarihi.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0].padStart(2, '0');
+                    const month = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    planTarihi = `${year}-${month}-${day}`;
+                }
+            }
             const isChanged = planTarihi !== originalDate;
             updatedStages.push({ 
                 isemriId, 
@@ -4823,9 +4850,20 @@ class DataGrid {
             if (stageDates && Array.isArray(stageDates)) {
                 stageDates.forEach(stage => {
                     if (stage.isemriId && stage.planTarihi) {
+                        // Tarih formatını dönüştür (d/m/Y -> YYYY-MM-DD)
+                        let formattedDate = stage.planTarihi;
+                        if (formattedDate && formattedDate.includes('/')) {
+                            const parts = formattedDate.split('/');
+                            if (parts.length === 3) {
+                                const day = parts[0].padStart(2, '0');
+                                const month = parts[1].padStart(2, '0');
+                                const year = parts[2];
+                                formattedDate = `${year}-${month}-${day}`;
+                            }
+                        }
                         // Sadece değiştirilen tarihleri gönder
                         if (stage.isChanged) {
-                            stageDatesObj[stage.isemriId] = stage.planTarihi;
+                            stageDatesObj[stage.isemriId] = formattedDate;
                         }
                         stageChangedFlags[stage.isemriId] = stage.isChanged || false;
                     }
@@ -5045,7 +5083,17 @@ class DataGrid {
             if (machines.length > 0 && machineInfo) {
                 // Seçilen tarihi al
                 const tarihField = modal.querySelector('#planningTarih');
-                const selectedDate = tarihField ? tarihField.value : null;
+                let selectedDate = null;
+                if (tarihField && tarihField.value) {
+                    // dateStr d/m/Y formatında ise YYYY-MM-DD'ye çevir
+                    const dateStr = tarihField.value;
+                    const parts = dateStr.split('/');
+                    if (parts.length === 3) {
+                        selectedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    } else {
+                        selectedDate = dateStr; // Zaten YYYY-MM-DD formatında olabilir
+                    }
+                }
                 
                 // Makine durumlarını al
                 const machineNames = machines.map(m => m.makAd);
@@ -5418,23 +5466,128 @@ class DataGrid {
         const machines = machineInfo.subMachines || [];
         const machineGroups = machineInfo.groups || {};
         
-        // Makine durumlarını güncelle
-        await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate, machineGroups);
-        
         console.log('📍 Makine seçim alanı modal\'a ekleniyor...');
         // Makine seçim alanını uygun tarih alanından sonra ekle
         let tarihField = modal.querySelector('#planningTarih') || modal.querySelector('#yeniTarih');
-        if (tarihField && tarihField.parentElement) {
-            tarihField.parentElement.insertAdjacentElement('afterend', machineField);
-            console.log('✅ Makine seçim alanı eklendi');
+        if (tarihField) {
+            // Flatpickr wrapper'ı içinde olabilir, gerçek input'u bul
+            const actualInput = tarihField.closest('.flatpickr-wrapper') ? 
+                tarihField.closest('.flatpickr-wrapper').querySelector('input[data-input]') || tarihField : 
+                tarihField;
             
-            // Tarih değişikliğini dinle (önceki listener'ları kaldır)
-            const newTarihField = tarihField.cloneNode(true);
-            tarihField.parentNode.replaceChild(newTarihField, tarihField);
-            newTarihField.addEventListener('change', async () => {
-                const newDate = newTarihField.value;
-                await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
-            });
+            // Tarih alanının form-row'unu bul (HTML'de form-group değil form-row kullanılıyor)
+            const tarihFormRow = actualInput.closest('.form-row');
+            if (tarihFormRow) {
+                // Form-row'dan sonra ekle
+                tarihFormRow.parentNode.insertBefore(machineField, tarihFormRow.nextElementSibling);
+                console.log('✅ Makine seçim alanı form-row\'dan sonra eklendi');
+            } else {
+                // Form-row yoksa, tarih alanının wrapper'ını veya parent'ını bul
+                const tarihWrapper = actualInput.closest('.flatpickr-wrapper') || actualInput.parentElement;
+                if (tarihWrapper && tarihWrapper.parentElement) {
+                    tarihWrapper.parentElement.insertBefore(machineField, tarihWrapper.nextElementSibling);
+                    console.log('✅ Makine seçim alanı wrapper\'dan sonra eklendi');
+                } else {
+                    // Fallback: modal body'nin sonuna ekle
+                    const modalBody = modal.querySelector('.modal-body');
+                    if (modalBody) {
+                        modalBody.appendChild(machineField);
+                        console.log('✅ Makine seçim alanı fallback ile eklendi');
+                    }
+                }
+            }
+            console.log('✅ Makine seçim alanı DOM\'a eklendi');
+            
+            // Şimdi makine durumlarını güncelle (alan eklendikten sonra)
+            await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate, machineGroups);
+            
+            // Makine seçimi eklendikten sonra, eğer default makine varsa Flatpickr'ı güncelle
+            if (defaultMachine && tarihField && window.initFlatpickrWithPlanningColors) {
+                const isemriId = tarihField.dataset?.isemriId || null;
+                if (isemriId) {
+                    console.log('🔄 Default makine ile Flatpickr renklendirmesi güncelleniyor:', defaultMachine);
+                    await window.initFlatpickrWithPlanningColors(tarihField, isemriId, defaultMachine);
+                }
+            }
+            
+            // Makine seçimi değiştiğinde Flatpickr renklendirmesini güncelle
+            const newMachineSelect = machineField.querySelector('#machineSelection');
+            if (newMachineSelect) {
+                newMachineSelect.addEventListener('change', async () => {
+                    const selectedMachine = newMachineSelect.value;
+                    const modal = machineField.closest('.modal');
+                    if (modal) {
+                        const tarihField = modal.querySelector('#planningTarih');
+                        if (tarihField) {
+                            // isemriId'yi al (input'tan)
+                            const isemriId = tarihField.dataset?.isemriId || null;
+                            if (isemriId && window.initFlatpickrWithPlanningColors) {
+                                // Flatpickr instance'ını yeniden başlat (seçili makine ile)
+                                await window.initFlatpickrWithPlanningColors(tarihField, isemriId, selectedMachine);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Tarih değişikliğini dinle
+            const flatpickrInstance = tarihField._flatpickr;
+            if (flatpickrInstance) {
+                // Mevcut onChange callback'lerini al
+                const existingOnChange = flatpickrInstance.config.onChange || [];
+                const newOnChange = async function(selectedDates, dateStr, instance) {
+                    // Mevcut callback'leri çalıştır
+                    if (Array.isArray(existingOnChange)) {
+                        existingOnChange.forEach(cb => {
+                            if (typeof cb === 'function') {
+                                cb(selectedDates, dateStr, instance);
+                            }
+                        });
+                    } else if (typeof existingOnChange === 'function') {
+                        existingOnChange(selectedDates, dateStr, instance);
+                    }
+                    
+                    // Makine seçimini güncelle
+                    // dateStr d/m/Y formatında, YYYY-MM-DD formatına çevir
+                    let newDate = null;
+                    if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        newDate = `${year}-${month}-${day}`;
+                    } else if (dateStr) {
+                        // dateStr d/m/Y formatında ise YYYY-MM-DD'ye çevir
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            newDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        }
+                    }
+                    if (newDate) {
+                        await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
+                    }
+                }.bind(this);
+                
+                flatpickrInstance.config.onChange = newOnChange;
+            } else {
+                // Flatpickr yoksa normal change event
+                tarihField.addEventListener('change', async () => {
+                    const dateStr = tarihField.value;
+                    // dateStr d/m/Y formatında ise YYYY-MM-DD'ye çevir
+                    let newDate = null;
+                    if (dateStr) {
+                        const parts = dateStr.split('/');
+                        if (parts.length === 3) {
+                            newDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        } else {
+                            newDate = dateStr; // Zaten YYYY-MM-DD formatında olabilir
+                        }
+                    }
+                    if (newDate) {
+                        await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
+                    }
+                });
+            }
         } else {
             console.error('❌ Tarih alanı bulunamadı!');
             // Fallback: modal body'nin sonuna ekle
@@ -5442,6 +5595,8 @@ class DataGrid {
             if (modalBody) {
                 modalBody.appendChild(machineField);
                 console.log('✅ Makine seçim alanı fallback ile eklendi');
+                // Makine durumlarını güncelle
+                await this.updateMachineSelectionOptions(machineField, machines, availabilityData, defaultMachine, selectedDate, machineGroups);
             }
         }
     }
@@ -6018,7 +6173,17 @@ class DataGrid {
      */
     async submitPlanning(item) {
         try {
-            const planTarihi = document.getElementById('planningTarih').value;
+            let planTarihi = document.getElementById('planningTarih').value;
+            // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+            if (planTarihi && planTarihi.includes('/')) {
+                const parts = planTarihi.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0].padStart(2, '0');
+                    const month = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    planTarihi = `${year}-${month}-${day}`;
+                }
+            }
             const planlananMiktar = parseInt(document.getElementById('planningMiktar').value);
             const aciklama = document.getElementById('planningAciklama')?.value || '';
             
@@ -6771,7 +6936,7 @@ class DataGrid {
                        onblur="if(!this.readOnly) { this.style.borderColor='#cbd5e0'; this.style.boxShadow='none'; }" />
             </td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
-                <input type="date" 
+                <input type="text" 
                        class="product-order-date-input" 
                        data-isemri-id="${order.ISEMRI_ID}"
                        value="${planDate}" 
@@ -6798,8 +6963,35 @@ class DataGrid {
         html += '</tbody></table>';
         ordersList.innerHTML = html;
         
-        // Her iş emri için makine dropdown'ını doldur
-        this.populateProductBasedMachineDropdowns(ordersList, sortedOrders);
+        // Her iş emri için makine dropdown'ını doldur (önce makine dropdown'ları doldur, sonra Flatpickr başlat)
+        this.populateProductBasedMachineDropdowns(ordersList, sortedOrders).then(() => {
+            // Tarih input'larını flatpickr ile başlat (makine seçimine göre renklendirme ile)
+            const dateInputs = ordersList.querySelectorAll('.product-order-date-input');
+            dateInputs.forEach(input => {
+                if (input.readOnly) return; // Readonly input'ları atla
+                const isemriId = input.dataset.isemriId ? parseInt(input.dataset.isemriId) : null;
+                if (window.initFlatpickrWithPlanningColors && isemriId) {
+                    // Aynı satırdaki makine seçimini bul
+                    const row = input.closest('tr');
+                    const machineSelect = row ? row.querySelector('.product-order-machine-input') : null;
+                    const selectedMachine = machineSelect ? machineSelect.value : null;
+                    
+                    // Makine seçimi değiştiğinde Flatpickr'ı güncelle
+                    if (machineSelect) {
+                        machineSelect.addEventListener('change', async () => {
+                            const newSelectedMachine = machineSelect.value;
+                            if (window.initFlatpickrWithPlanningColors) {
+                                await window.initFlatpickrWithPlanningColors(input, isemriId, newSelectedMachine);
+                            }
+                        });
+                    }
+                    
+                    window.initFlatpickrWithPlanningColors(input, isemriId, selectedMachine);
+                } else if (window.initFlatpickr) {
+                    window.initFlatpickr(input);
+                }
+            });
+        });
         
         // Checkbox değişikliklerini dinle
         const checkboxes = ordersList.querySelectorAll('.product-order-checkbox');
@@ -6925,7 +7117,17 @@ class DataGrid {
             const machineInput = row.querySelector('.product-order-machine-input');
             
             const planlananMiktar = parseInt(quantityInput.value) || 0;
-            const planTarihi = dateInput.value;
+            let planTarihi = dateInput.value;
+            // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+            if (planTarihi && planTarihi.includes('/')) {
+                const parts = planTarihi.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0].padStart(2, '0');
+                    const month = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    planTarihi = `${year}-${month}-${day}`;
+                }
+            }
             const selectedMachine = machineInput ? machineInput.value : null;
             
             if (planlananMiktar > 0 && planTarihi) {
@@ -13299,6 +13501,18 @@ class DataGrid {
                 }
             }
             
+            // Tarih formatını d/m/Y formatına çevir (Flatpickr için)
+            let formattedDefaultDate = '';
+            if (defaultDate) {
+                const date = new Date(defaultDate);
+                if (!isNaN(date.getTime())) {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    formattedDefaultDate = `${day}/${month}/${year}`;
+                }
+            }
+            
             html += `<tr style="background-color: ${rowBgColor}; border-bottom: 1px solid #e0e0e0;" data-isemri-id="${item.isemriId}">`;
             html += `<td style="padding: 12px 15px; color: #2d3748; font-size: 13px; vertical-align: middle; font-weight: 500;">${item.isemriNo || '-'}</td>`;
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.imalatTuru || item.malhizAdi || '-'}</td>`;
@@ -13306,10 +13520,10 @@ class DataGrid {
             html += `<td style="padding: 12px 15px; color: #4a5568; font-size: 13px; vertical-align: middle;">${item.firmaAdi || '-'}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; color: #2d3748; font-size: 13px; vertical-align: middle;">${siparisMiktarHesaplanan}</td>`;
             html += `<td style="padding: 12px 15px; text-align: center; vertical-align: middle;">
-                <input type="date" 
+                <input type="text" 
                        class="bulk-planning-date-input" 
                        data-isemri-id="${item.isemriId}"
-                       value="${defaultDate}" 
+                       value="${formattedDefaultDate}" 
                        required
                        style="width: 150px; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #2d3748; font-family: inherit; transition: border-color 0.2s ease; box-sizing: border-box;"
                        onfocus="this.style.borderColor='#40916c'; this.style.boxShadow='0 0 0 3px rgba(64, 145, 108, 0.1)';" 
@@ -13341,8 +13555,34 @@ class DataGrid {
         html += '</tbody></table>';
         ordersList.innerHTML = html;
         
-        // Makine dropdown'larını doldur
-        this.populateBulkPlanningMachineDropdowns(items);
+        // Makine dropdown'larını doldur (önce makine dropdown'ları doldur, sonra Flatpickr başlat)
+        this.populateBulkPlanningMachineDropdowns(items).then(() => {
+            // Tarih input'larını flatpickr ile başlat (makine seçimine göre renklendirme ile)
+            const dateInputs = ordersList.querySelectorAll('.bulk-planning-date-input');
+            dateInputs.forEach(input => {
+                const isemriId = parseInt(input.dataset.isemriId);
+                if (window.initFlatpickrWithPlanningColors && isemriId) {
+                    // Aynı satırdaki makine seçimini bul
+                    const row = input.closest('tr');
+                    const machineSelect = row ? row.querySelector('.bulk-planning-machine-input') : null;
+                    const selectedMachine = machineSelect ? machineSelect.value : null;
+                    
+                    // Makine seçimi değiştiğinde Flatpickr'ı güncelle
+                    if (machineSelect) {
+                        machineSelect.addEventListener('change', async () => {
+                            const newSelectedMachine = machineSelect.value;
+                            if (window.initFlatpickrWithPlanningColors) {
+                                await window.initFlatpickrWithPlanningColors(input, isemriId, newSelectedMachine);
+                            }
+                        });
+                    }
+                    
+                    window.initFlatpickrWithPlanningColors(input, isemriId, selectedMachine);
+                } else if (window.initFlatpickr) {
+                    window.initFlatpickr(input);
+                }
+            });
+        });
     }
     
     /**
@@ -13445,11 +13685,22 @@ class DataGrid {
                 if (item) {
                     // Her bir iş emri için tarih seçimini al
                     const dateInput = modal.querySelector(`.bulk-planning-date-input[data-isemri-id="${isemriId}"]`);
-                    const planTarihi = dateInput && dateInput.value ? dateInput.value : null;
+                    let planTarihi = dateInput && dateInput.value ? dateInput.value : null;
                     
                     if (!planTarihi) {
                         window.planningApp?.showWarning(`${item.isemriNo || isemriId} iş emri için planlanan tarih seçilmedi`);
                         return;
+                    }
+                    
+                    // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+                    if (planTarihi && planTarihi.includes('/')) {
+                        const parts = planTarihi.split('/');
+                        if (parts.length === 3) {
+                            const day = parts[0].padStart(2, '0');
+                            const month = parts[1].padStart(2, '0');
+                            const year = parts[2];
+                            planTarihi = `${year}-${month}-${day}`;
+                        }
                     }
                     
                     // Makine seçimini al
@@ -13833,6 +14084,118 @@ class DataGrid {
         
         if (window.planningApp) {
             window.planningApp.showSuccess('Gelişmiş filtreler temizlendi.');
+        }
+    }
+
+    /**
+     * Gelişmiş filtre kuralını değerlendirir
+     */
+    evaluateAdvancedFilter(item, filter) {
+        const columnValue = item[filter.column];
+        const operator = filter.operator;
+        const value = filter.value;
+        const value2 = filter.value2;
+        
+        // Değer yoksa filtreleme yapma
+        if (value === '' || value === null || value === undefined) {
+            return true;
+        }
+        
+        const isNumeric = this.isNumericColumn(filter.column);
+        const isDate = this.isDateColumn(filter.column);
+        
+        // Değerleri uygun tipe dönüştür
+        let compareValue = value;
+        let compareValue2 = value2;
+        
+        if (isNumeric) {
+            compareValue = parseFloat(value);
+            compareValue2 = value2 ? parseFloat(value2) : null;
+            const itemValue = parseFloat(columnValue) || 0;
+            
+            switch (operator) {
+                case 'equals':
+                    return itemValue === compareValue;
+                case 'notEquals':
+                    return itemValue !== compareValue;
+                case 'greaterThan':
+                    return itemValue > compareValue;
+                case 'lessThan':
+                    return itemValue < compareValue;
+                case 'greaterThanOrEqual':
+                    return itemValue >= compareValue;
+                case 'lessThanOrEqual':
+                    return itemValue <= compareValue;
+                case 'between':
+                    if (!compareValue2) return true;
+                    return itemValue >= compareValue && itemValue <= compareValue2;
+                case 'notBetween':
+                    if (!compareValue2) return true;
+                    return itemValue < compareValue || itemValue > compareValue2;
+                default:
+                    return true;
+            }
+        } else if (isDate) {
+            const itemDate = columnValue ? new Date(columnValue) : null;
+            if (!itemDate || isNaN(itemDate.getTime())) return false;
+            
+            const filterDate = new Date(compareValue);
+            const filterDate2 = compareValue2 ? new Date(compareValue2) : null;
+            
+            // Tarihleri karşılaştırmak için sadece tarih kısmını al (saat bilgisini sıfırla)
+            const normalizeDate = (date) => {
+                const d = new Date(date);
+                d.setHours(0, 0, 0, 0);
+                return d;
+            };
+            
+            const itemDateNorm = normalizeDate(itemDate);
+            const filterDateNorm = normalizeDate(filterDate);
+            const filterDate2Norm = filterDate2 ? normalizeDate(filterDate2) : null;
+            
+            switch (operator) {
+                case 'equals':
+                    return itemDateNorm.getTime() === filterDateNorm.getTime();
+                case 'notEquals':
+                    return itemDateNorm.getTime() !== filterDateNorm.getTime();
+                case 'greaterThan':
+                    return itemDateNorm > filterDateNorm;
+                case 'lessThan':
+                    return itemDateNorm < filterDateNorm;
+                case 'greaterThanOrEqual':
+                    return itemDateNorm >= filterDateNorm;
+                case 'lessThanOrEqual':
+                    return itemDateNorm <= filterDateNorm;
+                case 'between':
+                    if (!filterDate2Norm) return true;
+                    return itemDateNorm >= filterDateNorm && itemDateNorm <= filterDate2Norm;
+                case 'notBetween':
+                    if (!filterDate2Norm) return true;
+                    return itemDateNorm < filterDateNorm || itemDateNorm > filterDate2Norm;
+                default:
+                    return true;
+            }
+        } else {
+            // Metin karşılaştırması
+            const itemStr = String(columnValue || '').toLowerCase();
+            const filterStr = String(compareValue || '').toLowerCase();
+            
+            switch (operator) {
+                case 'equals':
+                    return itemStr === filterStr;
+                case 'notEquals':
+                    return itemStr !== filterStr;
+                case 'contains':
+                    return itemStr.includes(filterStr);
+                case 'notContains':
+                    return !itemStr.includes(filterStr);
+                case 'startsWith':
+                    return itemStr.startsWith(filterStr);
+                case 'endsWith':
+                    return itemStr.endsWith(filterStr);
+                default:
+                    return true;
+            }
         }
     }
 }

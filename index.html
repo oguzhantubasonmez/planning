@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Denizciler Planlama Modülü</title>
     
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    
     <style>
         /* Tema Değişkenleri - CSS Variables */
         :root {
@@ -3477,6 +3481,120 @@
             transform: translateY(-1px);
         }
         
+        /* Flatpickr Wrapper - External Elements için (Dokümantasyon stili) */
+        .flatpickr-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            background: #ffffff;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .flatpickr-wrapper:hover {
+            border-color: #3b82f6;
+        }
+        
+        .flatpickr-wrapper:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .flatpickr-wrapper input[data-input] {
+            flex: 1;
+            padding: 10px 40px 10px 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            color: #1e3c72;
+            outline: none;
+        }
+        
+        /* Flatpickr Input Button (Takvim İkonu) - Dokümantasyon stili */
+        .flatpickr-wrapper .input-button {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            transition: color 0.2s ease, transform 0.2s ease;
+            z-index: 1;
+            text-decoration: none;
+        }
+        
+        .flatpickr-wrapper .input-button:hover {
+            color: #3b82f6;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .flatpickr-wrapper .input-button:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+        
+        .flatpickr-wrapper .input-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+        }
+        
+        /* Flatpickr Input Placeholder */
+        .flatpickr-wrapper input[data-input]::placeholder {
+            color: #9ca3af;
+            opacity: 1;
+        }
+        
+        .flatpickr-wrapper input[data-input]::-webkit-input-placeholder {
+            color: #9ca3af;
+        }
+        
+        .flatpickr-wrapper input[data-input]::-moz-placeholder {
+            color: #9ca3af;
+            opacity: 1;
+        }
+        
+        .flatpickr-wrapper input[data-input]:-ms-input-placeholder {
+            color: #9ca3af;
+        }
+        
+        /* Flatpickr Calendar Container - Dark theme için özel stiller kaldırıldı, dark.css kullanılıyor */
+        /* Dark theme'de Flatpickr kendi stillerini kullanacak */
+        
+        /* Bugün butonu - Dark theme uyumlu */
+        .flatpickr-today-button {
+            text-align: center;
+            padding: 8px;
+            margin: 4px;
+            cursor: pointer;
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.15) !important;
+            color: #60a5fa !important;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .flatpickr-today-button:hover {
+            background: rgba(59, 130, 246, 0.25) !important;
+            color: #93c5fd !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+        }
+        
+        .flatpickr-today-button:active {
+            transform: translateY(0);
+        }
+        
         .filter-row button {
             padding: 10px 20px;
             border: none;
@@ -3652,12 +3770,19 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            box-shadow: 
-                0 2px 8px rgba(42, 82, 152, 0.25),
-                inset 0 1px 2px rgba(255, 255, 255, 0.2);
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
             white-space: nowrap;
+            /* 3D Efekt */
+            position: relative;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            box-shadow: 
+                0 8px 16px rgba(0, 0, 0, 0.3),
+                0 4px 8px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .action-btn:hover {
@@ -3665,17 +3790,22 @@
                 var(--theme-button-start) 0%,
                 var(--theme-primary-5) 50%,
                 var(--theme-button-start) 100%);
+            transform: translateY(-3px) rotateX(5deg);
             box-shadow: 
-                0 4px 12px rgba(42, 82, 152, 0.35),
-                inset 0 1px 2px rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
+                0 12px 24px rgba(0, 0, 0, 0.4),
+                0 6px 12px rgba(0, 0, 0, 0.3),
+                inset 0 2px 4px rgba(255, 255, 255, 0.4),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.3);
         }
         
         .action-btn:active {
-            transform: translateY(0);
+            transform: translateY(-1px) rotateX(2deg);
             box-shadow: 
-                0 2px 6px rgba(42, 82, 152, 0.3),
-                inset 0 1px 2px rgba(0, 0, 0, 0.2);
+                0 4px 8px rgba(0, 0, 0, 0.3),
+                0 2px 4px rgba(0, 0, 0, 0.2),
+                inset 0 2px 4px rgba(0, 0, 0, 0.3),
+                inset 0 -1px 2px rgba(255, 255, 255, 0.1);
         }
         
         .btn-icon {
@@ -5947,11 +6077,11 @@
                 
                 <div class="filter-row">
                     <label for="startDateFilter">Başlangıç Tarihi:</label>
-                    <input type="date" id="startDateFilter" />
+                    <input type="text" id="startDateFilter" />
                 </div>
                 <div class="filter-row">
                     <label for="endDateFilter">Bitiş Tarihi:</label>
-                    <input type="date" id="endDateFilter" />
+                    <input type="text" id="endDateFilter" />
                     </div>
                 <div class="filter-row">
                     <button id="applyDateFilter" onclick="dataGrid.applyDateFilter()">Tarih Filtresini Uygula</button>
@@ -6283,7 +6413,7 @@
                         <h4>Planlama Bilgileri</h4>
                         <div class="form-row">
                             <label for="planningTarih">Planlanan Tarih:</label>
-                            <input type="date" id="planningTarih" required />
+                            <input type="text" id="planningTarih" required />
                     </div>
                         <div class="form-row">
                             <label for="planningMiktar">Planlanan Miktar:</label>
@@ -7000,6 +7130,10 @@
                 </div>
     </footer>
 
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/tr.js"></script>
+    
     <!-- JavaScript Sınıfları -->
     <script src="js/DatabaseService.js"></script>
     <script src="js/DataGrid.js"></script>
@@ -7013,6 +7147,407 @@
     
     <!-- Global Modal Fonksiyonları -->
     <script>
+        // Flatpickr yardımcı fonksiyonu - External Elements ile takvim ikonu
+        window.initFlatpickr = function(inputElement, options = {}) {
+            if (!inputElement || typeof flatpickr === 'undefined') {
+                return null;
+            }
+            
+            // Input type'ını text yap (HTML5 date picker'ı devre dışı bırakmak için)
+            if (inputElement.type === 'date') {
+                inputElement.type = 'text';
+            }
+            
+            // Eğer wrapper zaten flatpickr ile başlatılmışsa, önce destroy et
+            let wrapper = inputElement.closest('.flatpickr-wrapper');
+            if (wrapper && wrapper._flatpickr) {
+                wrapper._flatpickr.destroy();
+            }
+            
+            // Eğer input zaten flatpickr ile başlatılmışsa, önce destroy et
+            if (inputElement._flatpickr) {
+                inputElement._flatpickr.destroy();
+            }
+            
+            // Wrapper yoksa oluştur
+            if (!wrapper) {
+                wrapper = document.createElement('div');
+                wrapper.className = 'flatpickr-wrapper';
+                
+                // Input'u wrapper'a taşı
+                inputElement.parentNode.insertBefore(wrapper, inputElement);
+                wrapper.appendChild(inputElement);
+            }
+            
+            // Placeholder'ı ayarla (eğer yoksa)
+            if (!inputElement.placeholder) {
+                inputElement.placeholder = 'gg . aa . yyyy';
+            }
+            
+            // Input'a data-input attribute ekle
+            inputElement.setAttribute('data-input', '');
+            
+            // Takvim ikonu butonu ekle (eğer yoksa)
+            let toggleButton = wrapper.querySelector('.input-button[data-toggle]');
+            if (!toggleButton) {
+                toggleButton = document.createElement('a');
+                toggleButton.className = 'input-button';
+                toggleButton.setAttribute('title', 'Takvimi Aç/Kapat');
+                toggleButton.setAttribute('data-toggle', '');
+                toggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                `;
+                wrapper.appendChild(toggleButton);
+            }
+            
+            const defaultOptions = {
+                locale: 'tr',
+                dateFormat: 'd/m/Y',
+                altInput: false,
+                allowInput: true,
+                clickOpens: true,
+                wrap: true,
+                onReady: function(selectedDates, dateStr, instance) {
+                    // Bugün butonunu ekle
+                    const calendar = instance.calendarContainer;
+                    if (calendar && !calendar.querySelector('.flatpickr-today-button')) {
+                        const todayButton = document.createElement('div');
+                        todayButton.className = 'flatpickr-today-button';
+                        todayButton.textContent = 'Bugün';
+                        todayButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const today = new Date();
+                            instance.setDate(today, true);
+                            instance.close();
+                        });
+                        calendar.appendChild(todayButton);
+                    }
+                },
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Input değerini güncelle (d/m/Y formatında)
+                    if (selectedDates.length > 0) {
+                        inputElement.value = dateStr;
+                        // Change event'ini tetikle
+                        inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                },
+                ...options
+            };
+            
+            // Wrapper üzerinde flatpickr başlat
+            const fp = flatpickr(wrapper, defaultOptions);
+            
+            return fp;
+        };
+        
+        // Planlı iş olan günleri kırmızı, boş günleri yeşil renklendir
+        window.initFlatpickrWithPlanningColors = async function(inputElement, isemriId, selectedMachine = null, options = {}) {
+            if (!inputElement || typeof flatpickr === 'undefined') {
+                return null;
+            }
+            
+            // Input type'ını text yap (HTML5 date picker'ı devre dışı bırakmak için)
+            if (inputElement.type === 'date') {
+                inputElement.type = 'text';
+            }
+            
+            // Eğer wrapper zaten flatpickr ile başlatılmışsa, önce destroy et
+            let wrapper = inputElement.closest('.flatpickr-wrapper');
+            if (wrapper && wrapper._flatpickr) {
+                wrapper._flatpickr.destroy();
+            }
+            
+            // Eğer input zaten flatpickr ile başlatılmışsa, önce destroy et
+            if (inputElement._flatpickr) {
+                inputElement._flatpickr.destroy();
+            }
+            
+            // Wrapper yoksa oluştur
+            if (!wrapper) {
+                wrapper = document.createElement('div');
+                wrapper.className = 'flatpickr-wrapper';
+                
+                // Input'u wrapper'a taşı
+                inputElement.parentNode.insertBefore(wrapper, inputElement);
+                wrapper.appendChild(inputElement);
+            }
+            
+            // Placeholder'ı ayarla (eğer yoksa)
+            if (!inputElement.placeholder) {
+                inputElement.placeholder = 'gg . aa . yyyy';
+            }
+            
+            // Input'a data-input attribute ekle
+            inputElement.setAttribute('data-input', '');
+            
+            // Takvim ikonu butonu ekle (eğer yoksa)
+            let toggleButton = wrapper.querySelector('.input-button[data-toggle]');
+            if (!toggleButton) {
+                toggleButton = document.createElement('a');
+                toggleButton.className = 'input-button';
+                toggleButton.setAttribute('title', 'Takvimi Aç/Kapat');
+                toggleButton.setAttribute('data-toggle', '');
+                toggleButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                `;
+                wrapper.appendChild(toggleButton);
+            }
+            
+            // Planlı tarihleri belirlemek için yeni API endpoint'ini kullan
+            let busyDates = [];
+            if (selectedMachine) {
+                try {
+                    // Seçili makine için tüm planlı tarihleri tek seferde al
+                    const response = await fetch(`${window.API_BASE_URL}/api/machine/planned-dates?makineAdi=${encodeURIComponent(selectedMachine)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.plannedDates) {
+                            busyDates = data.plannedDates; // Zaten YYYY-MM-DD formatında
+                            console.log('📅 Seçili makine için planlı tarihler:', selectedMachine, busyDates);
+                        } else {
+                            console.warn('⚠️ API başarılı ama plannedDates boş:', data);
+                        }
+                    } else {
+                        console.error('❌ API hatası:', response.status, response.statusText);
+                    }
+                } catch (error) {
+                    console.error('❌ Makine planlı tarihler alınamadı:', error);
+                }
+            } else if (isemriId) {
+                // Makine seçimi yoksa, sadece bu iş emrine ait planları göster
+                try {
+                    const response = await fetch(`${window.API_BASE_URL}/api/planning-data`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.data) {
+                            const searchIsemriIdNum = typeof isemriId === 'string' ? parseInt(isemriId) : Number(isemriId);
+                            
+                            busyDates = data.data
+                                .filter(item => {
+                                    const hasDate = !!(item.PLAN_TARIHI || item.planTarihi);
+                                    if (!hasDate) return false;
+                                    
+                                    let itemIsemriId = null;
+                                    if (item.isemriId !== undefined && item.isemriId !== null) {
+                                        itemIsemriId = typeof item.isemriId === 'string' ? parseInt(item.isemriId) : Number(item.isemriId);
+                                    }
+                                    if (!itemIsemriId && item.ISEMRI_ID !== undefined && item.ISEMRI_ID !== null) {
+                                        itemIsemriId = typeof item.ISEMRI_ID === 'string' ? parseInt(item.ISEMRI_ID) : Number(item.ISEMRI_ID);
+                                    }
+                                    
+                                    return itemIsemriId === searchIsemriIdNum;
+                                })
+                                .map(item => {
+                                    const planTarihi = item.planTarihi || item.PLAN_TARIHI;
+                                    if (!planTarihi) return null;
+                                    
+                                    if (typeof planTarihi === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(planTarihi)) {
+                                        return planTarihi;
+                                    }
+                                    
+                                    let date;
+                                    if (planTarihi instanceof Date) {
+                                        date = planTarihi;
+                                    } else if (typeof planTarihi === 'string') {
+                                        date = new Date(planTarihi);
+                                    } else {
+                                        return null;
+                                    }
+                                    
+                                    if (!date || isNaN(date.getTime())) {
+                                        return null;
+                                    }
+                                    
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    return `${year}-${month}-${day}`;
+                                })
+                                .filter(date => date !== null);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Planlama verileri alınamadı:', error);
+                }
+            }
+            
+            // Placeholder'ı ayarla (eğer yoksa)
+            if (!inputElement.placeholder) {
+                inputElement.placeholder = 'gg . aa . yyyy';
+            }
+            
+            const formatDateStr = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+            
+            // applyColors fonksiyonunu daha geniş scope'a taşı (tüm callback'lerden erişilebilir olması için)
+            let flatpickrInstance = null;
+            const applyColors = () => {
+                if (!flatpickrInstance || !flatpickrInstance.calendarContainer) {
+                    console.warn('⚠️ Flatpickr instance veya calendar container bulunamadı');
+                    return;
+                }
+                
+                const calendar = flatpickrInstance.calendarContainer;
+                const dayElements = calendar.querySelectorAll('.flatpickr-day');
+                
+                console.log('🎨 Renklendirme uygulanıyor. Planlı tarih sayısı:', busyDates.length, 'Tarihler:', busyDates);
+                
+                dayElements.forEach(day => {
+                    // Devre dışı bırakılmış günleri atla
+                    if (day.classList.contains('flatpickr-disabled')) return;
+                    
+                    // Flatpickr'ın dateObj özelliğini kullan
+                    let dayDate = day.dateObj;
+                    if (!dayDate) {
+                        // Alternatif: aria-label'dan tarih al
+                        const ariaLabel = day.getAttribute('aria-label');
+                        if (ariaLabel) {
+                            try {
+                                const parsed = new Date(ariaLabel);
+                                if (!isNaN(parsed.getTime())) {
+                                    dayDate = parsed;
+                                } else {
+                                    return;
+                                }
+                            } catch (e) {
+                                return;
+                            }
+                        } else {
+                            return;
+                        }
+                    }
+                    
+                    // Tarihi YYYY-MM-DD formatına çevir
+                    const dateStr = formatDateStr(dayDate);
+                    
+                    // busyDates array'inde bu tarih var mı kontrol et
+                    const isBusy = busyDates.includes(dateStr);
+                    
+                    if (isBusy) {
+                        // Planlı gün - kırmızı
+                        day.style.backgroundColor = '#ff9999';
+                        day.style.color = '#fff';
+                        day.style.fontWeight = 'bold';
+                        day.style.borderColor = '#ff8787';
+                        day.setAttribute('title', 'Planlı iş var');
+                    } else {
+                        // Boş gün - yeşil
+                        day.style.backgroundColor = '#8fd99a';
+                        day.style.color = '#fff';
+                        day.style.fontWeight = 'normal';
+                        day.style.borderColor = '#7dd87f';
+                        day.setAttribute('title', 'Boş gün');
+                    }
+                });
+            };
+            
+            const defaultOptions = {
+                locale: 'tr',
+                dateFormat: 'd/m/Y',
+                altInput: false,
+                allowInput: true,
+                clickOpens: true,
+                animate: true,
+                onReady: function(selectedDates, dateStr, instance) {
+                    // Instance'ı sakla
+                    flatpickrInstance = instance;
+                    
+                    // Input'a wrapper ekle
+                    if (!inputElement.parentElement.classList.contains('flatpickr-wrapper')) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'flatpickr-wrapper';
+                        inputElement.parentNode.insertBefore(wrapper, inputElement);
+                        wrapper.appendChild(inputElement);
+                    }
+                    
+                    // Seçili tarih varsa has-value class'ı ekle
+                    if (selectedDates.length > 0) {
+                        inputElement.classList.add('has-value');
+                    }
+                    
+                    // Bugün butonunu ekle
+                    const calendar = instance.calendarContainer;
+                    if (calendar && !calendar.querySelector('.flatpickr-today-button')) {
+                        const todayButton = document.createElement('div');
+                        todayButton.className = 'flatpickr-today-button';
+                        todayButton.textContent = 'Bugün';
+                        // CSS class kullanılıyor, inline style gerekmez
+                        todayButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const today = new Date();
+                            instance.setDate(today, true);
+                            instance.close();
+                        });
+                        calendar.appendChild(todayButton);
+                    }
+                    
+                    // İlk renklendirmeyi uygula
+                    setTimeout(() => applyColors(), 100);
+                },
+                onMonthChange: function(selectedDates, dateStr, instance) {
+                    // Instance'ı güncelle
+                    flatpickrInstance = instance;
+                    
+                    // Ay değiştiğinde renklendirmeyi güncelle
+                    setTimeout(() => {
+                        applyColors();
+                    }, 100);
+                },
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Instance'ı güncelle
+                    flatpickrInstance = instance;
+                    
+                    // Input değerini güncelle (d/m/Y formatında)
+                    if (selectedDates.length > 0) {
+                        inputElement.value = dateStr; // dateStr zaten d/m/Y formatında
+                        // Change event'ini tetikle
+                        inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+                    } else {
+                        inputElement.value = '';
+                    }
+                    
+                    // Tarih seçildiğinde has-value class'ını ekle/kaldır
+                    if (selectedDates.length > 0) {
+                        inputElement.classList.add('has-value');
+                    } else {
+                        inputElement.classList.remove('has-value');
+                    }
+                    
+                    // Tarih değiştiğinde renklendirmeyi güncelle
+                    setTimeout(() => {
+                        applyColors();
+                    }, 100);
+                },
+                ...options
+            };
+            
+            // Eğer input zaten flatpickr ile başlatılmışsa, önce destroy et
+            if (inputElement._flatpickr) {
+                inputElement._flatpickr.destroy();
+            }
+            
+            // Wrapper üzerinde flatpickr başlat
+            const fp = flatpickr(wrapper, defaultOptions);
+            
+            return fp;
+        };
+        
         function closeOrderTrackingModal() {
             const modal = document.getElementById('orderTrackingModal');
             if (modal) {

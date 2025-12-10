@@ -447,31 +447,31 @@ class ChartManager {
                 // Eğer hala hafta yoksa, varsayılan aralığı kullan
                 if (allWeeks.length === 0) {
                     console.warn('Hafta üretilemedi, varsayılan aralık kullanılıyor');
-                    const currentWeek = this.getWeekString(new Date());
-                    const currentWeekNum = parseInt(currentWeek.split('-W')[1]);
-                    const currentYear = parseInt(currentWeek.split('-W')[0]);
-                    // Yılın gerçek hafta sayısını hesapla (52 veya 53)
+                const currentWeek = this.getWeekString(new Date());
+                const currentWeekNum = parseInt(currentWeek.split('-W')[1]);
+                const currentYear = parseInt(currentWeek.split('-W')[0]);
+                // Yılın gerçek hafta sayısını hesapla (52 veya 53)
                     const getWeeksInYearFallback = (year) => {
-                        const dec31 = new Date(year, 11, 31);
-                        const weekString = this.getWeekString(dec31);
-                        if (weekString) {
-                            const weekYear = parseInt(weekString.split('-W')[0]);
-                            const weekNum = parseInt(weekString.split('-W')[1]);
-                            if (weekYear !== year) {
-                                const dec28 = new Date(year, 11, 28);
-                                const weekString28 = this.getWeekString(dec28);
-                                if (weekString28) {
-                                    return parseInt(weekString28.split('-W')[1]);
-                                }
+                    const dec31 = new Date(year, 11, 31);
+                    const weekString = this.getWeekString(dec31);
+                    if (weekString) {
+                        const weekYear = parseInt(weekString.split('-W')[0]);
+                        const weekNum = parseInt(weekString.split('-W')[1]);
+                        if (weekYear !== year) {
+                            const dec28 = new Date(year, 11, 28);
+                            const weekString28 = this.getWeekString(dec28);
+                            if (weekString28) {
+                                return parseInt(weekString28.split('-W')[1]);
                             }
-                            return weekNum;
                         }
-                        return 52;
-                    };
+                        return weekNum;
+                    }
+                    return 52;
+                };
                     const currentYearLastWeek = getWeeksInYearFallback(currentYear);
-                    for (let i = Math.max(1, currentWeekNum - 2); i <= Math.min(currentYearLastWeek, currentWeekNum + 2); i++) {
-                        const weekString = `${currentYear}-W${String(i).padStart(2, '0')}`;
-                        allWeeks.push(weekString);
+                for (let i = Math.max(1, currentWeekNum - 2); i <= Math.min(currentYearLastWeek, currentWeekNum + 2); i++) {
+                    const weekString = `${currentYear}-W${String(i).padStart(2, '0')}`;
+                    allWeeks.push(weekString);
                     }
                 }
             }
@@ -2469,6 +2469,32 @@ class ChartManager {
         
         html += '</tbody></table>';
         listContainer.innerHTML = html;
+        
+        // Tarih input'larını flatpickr ile başlat (makine seçimine göre renklendirme ile)
+        const dateInputs = listContainer.querySelectorAll('.segment-date-input');
+        dateInputs.forEach(input => {
+            const isemriId = input.dataset.isemriId ? parseInt(input.dataset.isemriId) : null;
+            if (window.initFlatpickrWithPlanningColors && isemriId) {
+                // Aynı satırdaki makine seçimini bul
+                const row = input.closest('tr');
+                const machineSelect = row ? row.querySelector('.machine-select') : null;
+                const selectedMachine = machineSelect ? machineSelect.value : null;
+                
+                // Makine seçimi değiştiğinde Flatpickr'ı güncelle
+                if (machineSelect) {
+                    machineSelect.addEventListener('change', async () => {
+                        const newSelectedMachine = machineSelect.value;
+                        if (window.initFlatpickrWithPlanningColors) {
+                            await window.initFlatpickrWithPlanningColors(input, isemriId, newSelectedMachine);
+                        }
+                    });
+                }
+                
+                window.initFlatpickrWithPlanningColors(input, isemriId, selectedMachine);
+            } else if (window.initFlatpickr) {
+                window.initFlatpickr(input);
+            }
+        });
     }
     
     /**
@@ -2482,10 +2508,20 @@ class ChartManager {
         
         dateInputs.forEach(input => {
             const planId = input.dataset.planId;
-            const dateValue = input.value;
+            let dateValue = input.value;
             if (!dateValue) {
                 hasInvalidDate = true;
             } else {
+                // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+                if (dateValue && dateValue.includes('/')) {
+                    const parts = dateValue.split('/');
+                    if (parts.length === 3) {
+                        const day = parts[0].padStart(2, '0');
+                        const month = parts[1].padStart(2, '0');
+                        const year = parts[2];
+                        dateValue = `${year}-${month}-${day}`;
+                    }
+                }
                 dateChanges[planId] = dateValue;
             }
         });

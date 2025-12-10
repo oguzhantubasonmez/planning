@@ -2250,6 +2250,96 @@ app.delete('/api/planning/revert', async (req, res) => {
     }
 });
 
+// Makine için planlı tarihleri getirme endpoint'i (Flatpickr renklendirme için)
+app.get('/api/machine/planned-dates', async (req, res) => {
+    let connection;
+    try {
+        const { makineAdi } = req.query;
+        
+        if (!makineAdi) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Makine adı gerekli' 
+            });
+        }
+        
+        connection = await pool.getConnection();
+        
+        // Seçili makine için tüm planlı tarihleri çek
+        // Oracle'da bind parameter'ı direkt kullan, TRIM/UPPER'ı bind parameter üzerinde yap
+        const makineAdiTrimmed = makineAdi.trim();
+        const query = `
+            WITH ISEMRI_FILTERED AS (
+                SELECT * 
+                FROM ERPURT.T_URT_ISEMRI 
+                WHERE FABRIKA_KOD = 120 AND DURUMU = 1
+            )
+            SELECT DISTINCT
+                TO_CHAR(PV.PLAN_TARIHI, 'YYYY-MM-DD') AS PLAN_TARIHI
+            FROM ERPREADONLY.PLANLAMA_VERI PV
+            INNER JOIN ISEMRI_FILTERED IF ON PV.ISEMRI_ID = IF.ISEMRI_ID
+            WHERE TRIM(PV.MAK_AD) = :makineAdi
+            AND PV.PLANLAMA_DURUMU = 'PLANLANDI'
+            AND PV.PLAN_TARIHI IS NOT NULL
+            ORDER BY PLAN_TARIHI ASC
+        `;
+        
+        const result = await connection.execute(query, { makineAdi: makineAdiTrimmed });
+        
+        console.log(`📅 Makine "${makineAdiTrimmed}" için ${result.rows.length} planlı tarih bulundu`);
+        
+        // Debug: İlk satırı kontrol et
+        if (result.rows.length > 0) {
+            console.log('🔍 İlk satır örneği:', result.rows[0]);
+            console.log('🔍 metaData:', result.metaData);
+        }
+        
+        // Oracle'dan gelen veriyi doğru şekilde map et
+        // OUT_FORMAT_OBJECT kullanıldığında, kolon adı metaData'dan alınmalı
+        const plannedDates = result.rows.map((row, index) => {
+            let value = null;
+            
+            // Önce metaData'dan kolon adını al
+            if (result.metaData && result.metaData.length > 0) {
+                const columnName = result.metaData[0].name;
+                value = row[columnName];
+                // Eğer hala null ise, array index ile dene
+                if (value === null || value === undefined) {
+                    value = row[0];
+                }
+            } else {
+                // metaData yoksa, direkt row[0] veya row.PLAN_TARIHI dene
+                value = row[0] || row.PLAN_TARIHI;
+            }
+            
+            return value;
+        }).filter(date => date !== null && date !== undefined && date !== '');
+        
+        console.log(`📅 İşlenmiş tarih sayısı: ${plannedDates.length}, İlk 3 tarih:`, plannedDates.slice(0, 3));
+        
+        res.json({
+            success: true,
+            machineName: makineAdi,
+            plannedDates: plannedDates
+        });
+        
+    } catch (error) {
+        console.error('Makine planlı tarihler hatası:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Makine planlı tarihler alınamadı: ' + error.message 
+        });
+    } finally {
+        if (connection) {
+            try {
+                await connection.close();
+            } catch (err) {
+                console.error('Connection kapatma hatası:', err);
+            }
+        }
+    }
+});
+
 // Planlama verilerini getirme endpoint'i
 app.get('/api/planning-data', async (req, res) => {
     let connection;
@@ -2710,8 +2800,31 @@ app.get('/api/machine/availability', async (req, res) => {
         
         connection = await pool.getConnection();
         
+        // Tarih formatını normalize et (d/m/Y veya YYYY-MM-DD formatından YYYY-MM-DD'ye çevir)
+        let normalizedDate = null;
+        if (startDate) {
+            // Eğer d/m/Y formatında ise (örn: 19/03/2026)
+            if (startDate.includes('/')) {
+                const parts = startDate.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0].padStart(2, '0');
+                    const month = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    normalizedDate = `${year}-${month}-${day}`;
+                } else {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: 'Geçersiz tarih formatı. Beklenen format: d/m/Y veya YYYY-MM-DD' 
+                    });
+                }
+            } else {
+                // Zaten YYYY-MM-DD formatında olabilir
+                normalizedDate = startDate;
+            }
+        }
+        
         // Tarih filtresi varsa o tarihteki planlamaları kontrol et (TRUNC ile sadece tarih kısmını karşılaştır)
-        const dateFilter = startDate ? `AND TRUNC(PV.PLAN_TARIHI) = TO_DATE(:startDate, 'YYYY-MM-DD')` : '';
+        const dateFilter = normalizedDate ? `AND TRUNC(PV.PLAN_TARIHI) = TO_DATE(:startDate, 'YYYY-MM-DD')` : '';
         
         // Makine boşluk durumu sorgusu - seçilen tarihe göre
         const availabilityQuery = `
@@ -2751,8 +2864,8 @@ app.get('/api/machine/availability', async (req, res) => {
         `;
         
         const queryParams = { makineAdi };
-        if (startDate) {
-            queryParams.startDate = startDate;
+        if (normalizedDate) {
+            queryParams.startDate = normalizedDate;
         }
         
         const result = await connection.execute(availabilityQuery, queryParams);
@@ -2778,7 +2891,7 @@ app.get('/api/machine/availability', async (req, res) => {
             res.json({
                 success: true,
                 machineName: makineAdi,
-                firstAvailableDate: startDate || new Date().toISOString().split('T')[0],
+                firstAvailableDate: normalizedDate || new Date().toISOString().split('T')[0],
                 plannedJobsCount: 0,
                 totalPlannedQuantity: 0,
                 isAvailable: true
