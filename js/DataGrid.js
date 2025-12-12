@@ -5547,7 +5547,7 @@ class DataGrid {
                         existingOnChange(selectedDates, dateStr, instance);
                     }
                     
-                    // Makine seçimini güncelle
+                    // Makine seçimini güncelle (mevcut seçili makineyi koru)
                     // dateStr d/m/Y formatında, YYYY-MM-DD formatına çevir
                     let newDate = null;
                     if (selectedDates.length > 0) {
@@ -5564,7 +5564,12 @@ class DataGrid {
                         }
                     }
                     if (newDate) {
-                        await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
+                        // Mevcut seçili makineyi al (kullanıcı değiştirmişse onu koru)
+                        const machineSelect = machineField.querySelector('#machineSelection');
+                        const currentSelectedMachine = machineSelect ? machineSelect.value : defaultMachine;
+                        // Mevcut seçili makineyi koru, yoksa defaultMachine kullan
+                        const machineToKeep = currentSelectedMachine || defaultMachine;
+                        await this.updateMachineSelectionOptions(machineField, machines, [], machineToKeep, newDate, machineGroups);
                     }
                 }.bind(this);
                 
@@ -5648,13 +5653,14 @@ class DataGrid {
                 const plannedJobsCount = availability ? availability.plannedJobsCount : 0;
                 const totalPlannedQuantity = availability ? availability.totalPlannedQuantity : 0;
                 
-                const isDefault = defaultMachine === machineName;
+                // Öncelik: mevcut seçili değer varsa onu koru, yoksa defaultMachine'i kullan
                 const isSelected = currentValue === machineName;
+                const isDefault = !currentValue && defaultMachine === machineName;
                 const statusText = isAvailable 
                     ? `✓ Boş (${totalPlannedQuantity} adet)` 
                     : `⚠ Dolu (${plannedJobsCount} iş, ${totalPlannedQuantity} adet)`;
                 
-                options += `<option value="${machineName}" ${isDefault || isSelected ? 'selected' : ''} data-available="${isAvailable}" data-date="${firstAvailableDate || ''}">${machineName} - ${statusText}</option>`;
+                options += `<option value="${machineName}" ${isSelected || isDefault ? 'selected' : ''} data-available="${isAvailable}" data-date="${firstAvailableDate || ''}">${machineName} - ${statusText}</option>`;
             });
             
             options += `</optgroup>`;
