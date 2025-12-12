@@ -10071,8 +10071,36 @@ class DataGrid {
         // Mevcut planlama bilgilerini doldur
         const planningTarih = modal.querySelector('#planningTarih') || document.getElementById('planningTarih');
         if (planningTarih) {
-            planningTarih.value = mainItem.planlananTarih ? 
-                new Date(mainItem.planlananTarih).toISOString().split('T')[0] : '';
+            // Tarihi d/m/Y formatına çevir (Flatpickr için)
+            let formattedDate = '';
+            if (mainItem.planlananTarih) {
+                const date = new Date(mainItem.planlananTarih);
+                if (!isNaN(date.getTime())) {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    formattedDate = `${day}/${month}/${year}`;
+                }
+            }
+            planningTarih.value = formattedDate;
+            
+            // Flatpickr ile başlat (makine seçimi eklendikten sonra güncellenecek)
+            if (window.initFlatpickrWithPlanningColors) {
+                const isemriId = mainItem.isemriId || mainItem.id;
+                if (isemriId) {
+                    // isemriId'yi input'a kaydet
+                    planningTarih.dataset.isemriId = isemriId;
+                    // Flatpickr'ı başlat (makine seçimi eklendikten sonra güncellenecek)
+                    window.initFlatpickrWithPlanningColors(planningTarih, isemriId, null);
+                } else {
+                    // isemriId yoksa normal Flatpickr kullan
+                    if (window.initFlatpickr) {
+                        window.initFlatpickr(planningTarih);
+                    }
+                }
+            } else if (window.initFlatpickr) {
+                window.initFlatpickr(planningTarih);
+            }
         }
         
         const planningMiktar = modal.querySelector('#planningMiktar') || document.getElementById('planningMiktar');
@@ -10235,7 +10263,17 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      */
     async submitUpdate(item) {
-        const planTarihi = document.getElementById('planningTarih').value;
+        let planTarihi = document.getElementById('planningTarih').value;
+        // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+        if (planTarihi && planTarihi.includes('/')) {
+            const parts = planTarihi.split('/');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                planTarihi = `${year}-${month}-${day}`;
+            }
+        }
         const planlananMiktarInput = document.getElementById('planningMiktar').value;
         
         // Makine seçimini al (dropdown veya radio button)
@@ -11928,7 +11966,7 @@ class DataGrid {
      * @param {Object} item - İş emri verisi
      * @param {HTMLElement} modal - Modal elementi
      */
-    openNormalSplitModal(item, modal) {
+    async openNormalSplitModal(item, modal) {
         // Önce makine seçim alanını temizle (varsa)
         const existingMachineField = modal.querySelector('#machineSelectionField');
         if (existingMachineField) {
@@ -11962,7 +12000,7 @@ class DataGrid {
                 </div>
                 <div class="form-group">
                     <label>Yeni Tarih:</label>
-                    <input type="date" id="yeniTarih" required>
+                    <input type="text" id="yeniTarih" required>
                 </div>
                 <div class="form-group">
                     <label>Makine:</label>
@@ -12000,14 +12038,14 @@ class DataGrid {
         modal.style.display = 'block';
         
         // Event listener'ları ekle
-        this.addSplitEventListeners(item);
+        await this.addSplitEventListeners(item);
     }
     
     /**
      * Parçalama modal'ı için event listener'ları ekler
      * @param {Object} item - İş emri verisi
      */
-    addSplitEventListeners(item) {
+    async addSplitEventListeners(item) {
         const splitMiktarInput = document.getElementById('splitMiktar');
         const yeniTarihInput = document.getElementById('yeniTarih');
         
@@ -12017,10 +12055,69 @@ class DataGrid {
             });
         }
         
+        // Flatpickr'ı başlat
         if (yeniTarihInput) {
-            yeniTarihInput.addEventListener('change', () => {
-                this.updateSplitResult(item);
-            });
+            // Kısa bir gecikme ekle (DOM'un tamamen yüklenmesi için)
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            if (window.initFlatpickrWithPlanningColors) {
+                const isemriId = item.isemriId || item.id;
+                if (isemriId) {
+                    // isemriId'yi input'a kaydet
+                    yeniTarihInput.dataset.isemriId = isemriId;
+                    // Flatpickr'ı başlat (makine seçimi eklendikten sonra güncellenecek)
+                    const fp = window.initFlatpickrWithPlanningColors(yeniTarihInput, isemriId, null);
+                    // Promise ise await et, değilse direkt kullan
+                    const flatpickrInstance = (fp && typeof fp.then === 'function') ? await fp : fp;
+                    
+                    // Flatpickr onChange event'ini dinle - wrapper üzerinden instance'ı al
+                    const wrapper = yeniTarihInput.closest('.flatpickr-wrapper');
+                    const instance = wrapper ? wrapper._flatpickr : (flatpickrInstance || yeniTarihInput._flatpickr);
+                    if (instance) {
+                        const existingOnChange = instance.config.onChange || [];
+                        const newOnChange = Array.isArray(existingOnChange) ? [...existingOnChange] : (existingOnChange ? [existingOnChange] : []);
+                        newOnChange.push(() => {
+                            this.updateSplitResult(item);
+                        });
+                        instance.config.onChange = newOnChange;
+                    }
+                } else {
+                    // isemriId yoksa normal Flatpickr kullan
+                    if (window.initFlatpickr) {
+                        const fp = window.initFlatpickr(yeniTarihInput);
+                        const flatpickrInstance = (fp && typeof fp.then === 'function') ? await fp : fp;
+                        const wrapper = yeniTarihInput.closest('.flatpickr-wrapper');
+                        const instance = wrapper ? wrapper._flatpickr : (flatpickrInstance || yeniTarihInput._flatpickr);
+                        if (instance) {
+                            const existingOnChange = instance.config.onChange || [];
+                            const newOnChange = Array.isArray(existingOnChange) ? [...existingOnChange] : (existingOnChange ? [existingOnChange] : []);
+                            newOnChange.push(() => {
+                                this.updateSplitResult(item);
+                            });
+                            instance.config.onChange = newOnChange;
+                        }
+                    }
+                }
+            } else if (window.initFlatpickr) {
+                // initFlatpickrWithPlanningColors yoksa normal Flatpickr kullan
+                const fp = window.initFlatpickr(yeniTarihInput);
+                const flatpickrInstance = (fp && typeof fp.then === 'function') ? await fp : fp;
+                const wrapper = yeniTarihInput.closest('.flatpickr-wrapper');
+                const instance = wrapper ? wrapper._flatpickr : (flatpickrInstance || yeniTarihInput._flatpickr);
+                if (instance) {
+                    const existingOnChange = instance.config.onChange || [];
+                    const newOnChange = Array.isArray(existingOnChange) ? [...existingOnChange] : (existingOnChange ? [existingOnChange] : []);
+                    newOnChange.push(() => {
+                        this.updateSplitResult(item);
+                    });
+                    instance.config.onChange = newOnChange;
+                }
+            } else {
+                // Flatpickr fonksiyonları yoksa normal change event kullan
+                yeniTarihInput.addEventListener('change', () => {
+                    this.updateSplitResult(item);
+                });
+            }
         }
 
         // İlk yükleme için sonuç alanını güncelle
@@ -12105,7 +12202,7 @@ class DataGrid {
                 </div>
                 <div class="form-group">
                     <label>Yeni Tarih:</label>
-                    <input type="date" id="yeniTarih" required>
+                    <input type="text" id="yeniTarih" required>
                 </div>
                 <div class="form-group">
                     <label>Makine:</label>
@@ -12159,7 +12256,7 @@ class DataGrid {
         modal.style.display = 'block';
         
         // Event listener'ları ekle
-        this.addSplitEventListeners(item);
+        await this.addSplitEventListeners(item);
     }
     
     /**
@@ -12235,7 +12332,18 @@ class DataGrid {
         if (!splitMiktarInput || !yeniTarihInput) return;
         
         const splitMiktar = parseInt(splitMiktarInput.value);
-        const yeniTarih = yeniTarihInput.value;
+        let yeniTarih = yeniTarihInput.value;
+        
+        // Flatpickr'dan gelen tarih d/m/Y formatında, backend YYYY-MM-DD bekliyor
+        if (yeniTarih && yeniTarih.includes('/')) {
+            const parts = yeniTarih.split('/');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                yeniTarih = `${year}-${month}-${day}`;
+            }
+        }
         
         if (!splitMiktar || splitMiktar <= 0) {
             window.planningApp.showWarning('Geçerli bir miktar giriniz');
