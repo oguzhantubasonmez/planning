@@ -5071,14 +5071,14 @@ class DataGrid {
             const isMaca = this.isMacaBolumu({ bolumAdi: item.bolumAdi, makAd: makineAdi });
             
             if (isMaca) {
-            // Makine tipini kontrol et
-            const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-            
-            if (machineInfo.isUpperMachine) {
-                // Üst makine - alt makineleri göster
-                await this.openUpperMachinePlanningModal(item, modal, machineInfo);
-            } else {
-                // Normal makine
+                // Makine tipini kontrol et (cache'li)
+                const machineInfo = await window.planningApp.checkMachineType(makineAdi);
+                
+                if (machineInfo.isUpperMachine) {
+                    // Üst makine - alt makineleri göster
+                    await this.openUpperMachinePlanningModal(item, modal, machineInfo);
+                } else {
+                    // Normal makine
                     await this.openNormalPlanningModal(item, modal);
                 }
             } else {
@@ -5108,14 +5108,16 @@ class DataGrid {
         // Normal planlama tab'ını güncelle
         this.populateNormalPlanningTab(modal, item);
         
-        // Tüm bölümler için makine seçimi ekle
-        await this.addMachineSelectionForAllDepartments(modal, item);
-        
         // Normal tab'a geç
         this.switchPlanningTab('normal');
         
-        // Modal'ı göster
+        // Modal'ı önce göster (kullanıcı deneyimi için)
         modal.style.display = 'block';
+        
+        // Makine seçimini arka planda yükle (non-blocking)
+        this.addMachineSelectionForAllDepartments(modal, item).catch(error => {
+            console.error('Makine seçimi ekleme hatası:', error);
+        });
     }
     
     /**
@@ -5171,15 +5173,30 @@ class DataGrid {
                     }
                 }
                 
-                // Makine durumlarını al
-                const machineNames = machines.map(m => m.makAd);
-                const availabilityData = await window.planningApp.checkMultipleMachineAvailability(machineNames, selectedDate);
-                
                 // Default makineyi belirle
                 const defaultMachine = item.selectedMachine || item.makAd || machines[0].makAd;
                 
-                // Makine seçim alanını ekle
-                await this.addMachineSelectionField(modal, machineInfo, availabilityData, defaultMachine, selectedDate);
+                // Makine seçim alanını önce ekle (availability olmadan)
+                await this.addMachineSelectionField(modal, machineInfo, [], defaultMachine, selectedDate);
+                
+                // Availability kontrolünü arka planda yap (non-blocking)
+                const machineNames = machines.map(m => m.makAd);
+                window.planningApp.checkMultipleMachineAvailability(machineNames, selectedDate).then(availabilityData => {
+                    // Availability verileri geldiğinde güncelle
+                    const machineField = modal.querySelector('#machineSelectionField');
+                    if (machineField) {
+                        this.updateMachineSelectionOptions(
+                            machineField,
+                            machines,
+                            availabilityData,
+                            defaultMachine,
+                            selectedDate,
+                            machineGroups
+                        );
+                    }
+                }).catch(error => {
+                    console.error('Makine availability kontrolü hatası:', error);
+                });
             }
         } catch (error) {
             console.error('Makine seçimi ekleme hatası:', error);
@@ -12175,14 +12192,17 @@ class DataGrid {
      * @param {Object} machineInfo - Makine bilgileri
      */
     async openUpperMachineSplitModal(item, modal, machineInfo) {
-        // Alt makinelerin availability'sini kontrol et
-        const availabilityData = await window.planningApp.checkMultipleMachineAvailability(
-            machineInfo.subMachines.map(sub => sub.makAd)
-        );
-        
         // Default makineyi belirle (mevcut makine)
         const defaultMachine = item.selectedMachine || item.makAd;
         console.log('🎯 Parçalama için default makine belirlendi:', defaultMachine);
+        
+        // Availability kontrolünü arka planda yap (non-blocking)
+        const availabilityPromise = window.planningApp.checkMultipleMachineAvailability(
+            machineInfo.subMachines.map(sub => sub.makAd)
+        ).catch(error => {
+            console.error('Makine availability kontrolü hatası:', error);
+            return [];
+        });
         
         // Modal içeriğini güncelle
         const modalContent = modal.querySelector('.modal-body');
@@ -14168,8 +14188,56 @@ class DataGrid {
             this.updateSelectAllCheckbox();
             document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
             
-            // Verileri yenile
-            await this.refreshFromOracle();
+            // Backend'den dönen sonuçları kullanarak ultraFastUpdate ile güncelle
+            if (result.data && result.data.results && Array.isArray(result.data.results)) {
+                const updatedRecords = [];
+                
+                result.data.results.forEach(planResult => {
+                    const { isemriId, createdPlanId, isPartialPlanning } = planResult;
+                    
+                    // İlgili iş emrini bul
+                    const orderToPlan = ordersToPlan.find(o => o.isemriId === isemriId);
+                    if (orderToPlan) {
+                        // Güncel item'ı bul
+                        let currentItem = this.filteredData.find(i => i.isemriId === isemriId);
+                        if (!currentItem && window.planningApp && window.planningApp.data) {
+                            currentItem = window.planningApp.data.find(i => i.isemriId === isemriId);
+                        }
+                        
+                        if (currentItem) {
+                            // Planlama verilerini güncelle
+                            const updatedPlanningData = this.updatePlanningDataForItem(
+                                currentItem, 
+                                orderToPlan.planTarihi, 
+                                orderToPlan.planlananMiktar, 
+                                createdPlanId,
+                                orderToPlan.aciklama || null
+                            );
+                            
+                            const updatedRecord = {
+                                isemriId: isemriId,
+                                planTarihi: orderToPlan.planTarihi,
+                                planlananMiktar: orderToPlan.planlananMiktar,
+                                planId: createdPlanId,
+                                planningData: updatedPlanningData,
+                                selectedMachine: orderToPlan.selectedMachine || currentItem.makAd,
+                                aciklama: orderToPlan.aciklama || null,
+                                isBreakdown: false
+                            };
+                            
+                            updatedRecords.push(updatedRecord);
+                        }
+                    }
+                });
+                
+                // Tüm güncellemeleri ultraFastUpdate ile yap
+                if (updatedRecords.length > 0) {
+                    await window.planningApp.ultraFastUpdate(updatedRecords);
+                    // Grid'i güncelle - güncellenen isemriId'leri geç
+                    const updatedIsemriIds = updatedRecords.map(r => r.isemriId);
+                    this.updateGridRows(updatedIsemriIds);
+                }
+            }
             
         } catch (error) {
             console.error('Toplu planlama hatası:', error);

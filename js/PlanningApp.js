@@ -285,16 +285,30 @@ class PlanningApp {
     }
 
     /**
-     * Makinenin üst makine olup olmadığını kontrol eder
+     * Makinenin üst makine olup olmadığını kontrol eder (cache'li)
      * @param {string} makineAdi - Makine adı
      * @returns {Promise<Object>} Makine bilgileri
      */
     async checkMachineType(makineAdi) {
+        // Cache kontrolü
+        if (!this.machineTypeCache) {
+            this.machineTypeCache = new Map();
+        }
+        
+        const cacheKey = makineAdi.trim().toUpperCase();
+        if (this.machineTypeCache.has(cacheKey)) {
+            return this.machineTypeCache.get(cacheKey);
+        }
+        
         // Artık tüm makine kontrolleri veritabanından yapılıyor
         try {
             const response = await fetch(`/api/machine/check-upper?makineAdi=${encodeURIComponent(makineAdi)}`);
             const result = await response.json();
-            if (result.success) return result;
+            if (result.success) {
+                // Cache'e kaydet
+                this.machineTypeCache.set(cacheKey, result);
+                return result;
+            }
             throw new Error(result.message || 'Makine kontrolü başarısız');
         } catch (error) {
             console.error('Makine kontrolü hatası:', error);
