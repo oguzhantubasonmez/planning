@@ -5853,6 +5853,7 @@ class DataGrid {
                                 <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">İş Emri No</th>
                                 <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Malzeme Kodu</th>
                                 <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Malzeme Adı</th>
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Malzeme</th>
                                 <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Firma</th>
                                 <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Planlanan Miktar</th>
                                 <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Sipariş Miktarı</th>
@@ -5867,6 +5868,7 @@ class DataGrid {
                             <td style="padding: 8px; border: 1px solid #ddd;">${is.ISEMRI_NO || '-'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${is.MALHIZ_KODU || '-'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${is.MALHIZ_ADI || '-'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${is.IMALAT_TURU || '-'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${is.FIRMA_ADI || '-'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d32f2f;">${parseFloat(is.PLANLANAN_MIKTAR || 0).toLocaleString('tr-TR')}</td>
                             <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${parseFloat(is.SIPARIS_MIKTAR || 0).toLocaleString('tr-TR')}</td>

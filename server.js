@@ -2386,8 +2386,9 @@ app.get('/api/machine/busy-days-details', async (req, res) => {
                 VD.ISEMRI_NO,
                 VD.MALHIZ_KODU,
                 VD.MALHIZ_ADI,
+                VD.IMALAT_TURU,
                 VD.FIRMA_ADI,
-                VD.PLAN_MIKTAR AS SIPARIS_MIKTAR
+                VD.SIPARIS_MIKTAR
             FROM ERPREADONLY.PLANLAMA_VERI PV
             INNER JOIN ISEMRI_FILTERED IF ON PV.ISEMRI_ID = IF.ISEMRI_ID
             LEFT JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID
