@@ -1596,10 +1596,33 @@ class DataGrid {
         const bugun = new Date();
         bugun.setHours(0, 0, 0, 0); // Sadece tarih karşılaştırması için saat bilgilerini sıfırla
         
-        const isGecikmeli = planlananTarih && 
+        // Ana kayıt için gecikme kontrolü
+        let isGecikmeli = planlananTarih && 
             planlananTarih < bugun && 
             !isTamamlandi &&
             totalRealizedComputed < totalPlannedComputed;
+        
+        // Kırılımlar varsa, herhangi bir kırılım gecikti ise ana iş de gecikti sayılır
+        if (!isGecikmeli && item.breakdowns && Array.isArray(item.breakdowns) && item.breakdowns.length > 0) {
+            const hasDelayedBreakdown = item.breakdowns.some(breakdown => {
+                if (!breakdown.planTarihi || breakdown.durum !== 'Planlandı') {
+                    return false;
+                }
+                const breakdownTarih = new Date(breakdown.planTarihi);
+                breakdownTarih.setHours(0, 0, 0, 0);
+                
+                // Kırılım için gerçekleşen miktar - breakdown'da varsa onu kullan, yoksa ana kayıttan al
+                const breakdownGercek = Number(breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0));
+                const breakdownPlanlanan = Number(breakdown.planlananMiktar || 0);
+                
+                // Kırılım gecikmiş mi kontrol et: tarih geçmiş ve tamamlanmamış
+                return breakdownTarih < bugun && breakdownGercek < breakdownPlanlanan;
+            });
+            
+            if (hasDelayedBreakdown) {
+                isGecikmeli = true;
+            }
+        }
         
         let computedStatus = 'Beklemede';
         if (isTamamlandi) {
@@ -2098,12 +2121,32 @@ class DataGrid {
         const cellSevkMiktari = item.SEVK_MIKTARI || item.sevkMiktari || 0;
         const cellBakiyeMiktar = Math.max(0, cellSiparisMiktarHesaplanan - cellSevkMiktari);
         
+        // Kırılım için gecikme kontrolü: Planlanan tarih geçmiş mi ve tamamlanmamış mı?
+        let breakdownComputedStatus = breakdown.durum;
+        if (breakdown.durum === 'Planlandı' && breakdown.planTarihi) {
+            const breakdownTarih = new Date(breakdown.planTarihi);
+            breakdownTarih.setHours(0, 0, 0, 0);
+            const bugun = new Date();
+            bugun.setHours(0, 0, 0, 0);
+            
+            // Kırılım için gerçekleşen miktar - breakdown'da varsa onu kullan, yoksa ana kayıttan al
+            const breakdownGercek = Number(breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0));
+            const breakdownPlanlanan = Number(breakdown.planlananMiktar || 0);
+            
+            // Kırılım gecikmiş mi kontrol et: tarih geçmiş ve tamamlanmamış
+            const isBreakdownDelayed = breakdownTarih < bugun && breakdownGercek < breakdownPlanlanan;
+            
+            if (isBreakdownDelayed) {
+                breakdownComputedStatus = 'Gecikti';
+            }
+        }
+        
         // Kırılım satırı için hücre içeriği oluşturma fonksiyonu
         const createBreakdownCellContent = (columnKey) => {
             switch(columnKey) {
                 case 'durum':
-                    const normDurum = breakdown.durum.toLowerCase().replace(/\s+/g,'-').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ç/g,'c').replace(/ö/g,'o').replace(/ü/g,'u');
-                    const statusBadge = `<span class="status-badge ${normDurum}">${breakdown.durum}</span>`;
+                    const normDurum = breakdownComputedStatus.toLowerCase().replace(/\s+/g,'-').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ç/g,'c').replace(/ö/g,'o').replace(/ü/g,'u');
+                    const statusBadge = `<span class="status-badge ${normDurum}">${breakdownComputedStatus}</span>`;
                     const machineInfo = this.isMacaBolumu(item) && breakdown.makAd ? `<div class="machine-info">${breakdown.makAd}</div>` : '';
                     return `<span class="breakdown-indent">└─</span>${statusBadge}${machineInfo}`;
                 case 'isemriNo':
@@ -2321,6 +2364,11 @@ class DataGrid {
             // Kırılım item'ı oluşturuldu
             this.showContextMenu(e, breakdownItem);
         });
+        
+        // Kırılım için gecikme kontrolü: Planlanan tarih geçmiş mi ve tamamlanmamış mı? (CSS class için)
+        if (breakdownComputedStatus === 'Gecikti') {
+            breakdownRow.classList.add('gecikti');
+        }
         
         return breakdownRow;
     }
@@ -3016,10 +3064,33 @@ class DataGrid {
             const totalRealized = Number(item.gercekMiktar || 0);
             const isTamamlandi = totalPlanned > 0 && totalRealized >= totalPlanned;
             
-            const isGecikmeli = planlananTarih && 
+            // Ana kayıt için gecikme kontrolü
+            let isGecikmeli = planlananTarih && 
                 planlananTarih < bugun && 
                 !isTamamlandi &&
                 totalRealized < totalPlanned;
+            
+            // Kırılımlar varsa, herhangi bir kırılım gecikti ise ana iş de gecikti sayılır
+            if (!isGecikmeli && item.breakdowns && Array.isArray(item.breakdowns) && item.breakdowns.length > 0) {
+                const hasDelayedBreakdown = item.breakdowns.some(breakdown => {
+                    if (!breakdown.planTarihi || breakdown.durum !== 'Planlandı') {
+                        return false;
+                    }
+                    const breakdownTarih = new Date(breakdown.planTarihi);
+                    breakdownTarih.setHours(0, 0, 0, 0);
+                    
+                    // Kırılım için gerçekleşen miktar - breakdown'da varsa onu kullan, yoksa ana kayıttan al
+                    const breakdownGercek = Number(breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0));
+                    const breakdownPlanlanan = Number(breakdown.planlananMiktar || 0);
+                    
+                    // Kırılım gecikmiş mi kontrol et: tarih geçmiş ve tamamlanmamış
+                    return breakdownTarih < bugun && breakdownGercek < breakdownPlanlanan;
+                });
+                
+                if (hasDelayedBreakdown) {
+                    isGecikmeli = true;
+                }
+            }
             
             // Gecikmiş değilse veya bölüm tanımsızsa atla
             if (!isGecikmeli || !item.bolumAdi || item.bolumAdi.trim().toUpperCase() === 'TANIMSIZ') {
@@ -3031,36 +3102,15 @@ class DataGrid {
                 delayedJobsByBolum[bolumAdi] = [];
             }
             
-            // Ana kayıt için plan bilgisi
-            if (item.planId && item.planlananTarih) {
-                const planTarihi = new Date(item.planlananTarih);
-                if (planTarihi < bugun) {
-                    const kalanMiktar = totalPlanned - totalRealized;
-                    if (kalanMiktar > 0) {
-                        delayedJobsByBolum[bolumAdi].push({
-                            planId: item.planId,
-                            isemriId: item.isemriId,
-                            isemriNo: item.isemriNo,
-                            isemriParcaNo: null,
-                            planTarihi: item.planlananTarih,
-                            planlananMiktar: totalPlanned,
-                            gercekMiktar: totalRealized,
-                            kalanMiktar: kalanMiktar,
-                            makAd: item.makAd || item.selectedMachine,
-                            malhizKodu: item.malhizKodu,
-                            malhizAdi: item.malhizAdi,
-                            firmaAdi: item.firmaAdi,
-                            bolumAdi: bolumAdi
-                        });
-                    }
-                }
-            }
+            // Kırılımlar varsa sadece geciken kırılımları ekle, ana kaydı ekleme
+            const hasBreakdowns = item.breakdowns && Array.isArray(item.breakdowns) && item.breakdowns.length > 0;
             
-            // Breakdown'lar için
-            if (item.breakdowns && Array.isArray(item.breakdowns)) {
+            // Breakdown'lar için - sadece geciken kırılımları ekle
+            if (hasBreakdowns) {
                 item.breakdowns.forEach(breakdown => {
                     if (breakdown.planId && breakdown.planTarihi) {
                         const breakdownTarih = new Date(breakdown.planTarihi);
+                        breakdownTarih.setHours(0, 0, 0, 0);
                         if (breakdownTarih < bugun && breakdown.durum === 'Planlandı') {
                             // Breakdown için gerçekleşen miktar - breakdown'da varsa onu kullan, yoksa ana kayıttan al
                             const breakdownGercek = Number(breakdown.gercekMiktar !== undefined ? breakdown.gercekMiktar : (item.gercekMiktar || 0));
@@ -3087,6 +3137,32 @@ class DataGrid {
                         }
                     }
                 });
+            } else {
+                // Kırılım yoksa ana kayıt için plan bilgisi ekle
+                if (item.planId && item.planlananTarih) {
+                    const planTarihi = new Date(item.planlananTarih);
+                    planTarihi.setHours(0, 0, 0, 0);
+                    if (planTarihi < bugun) {
+                        const kalanMiktar = totalPlanned - totalRealized;
+                        if (kalanMiktar > 0) {
+                            delayedJobsByBolum[bolumAdi].push({
+                                planId: item.planId,
+                                isemriId: item.isemriId,
+                                isemriNo: item.isemriNo,
+                                isemriParcaNo: null,
+                                planTarihi: item.planlananTarih,
+                                planlananMiktar: totalPlanned,
+                                gercekMiktar: totalRealized,
+                                kalanMiktar: kalanMiktar,
+                                makAd: item.makAd || item.selectedMachine,
+                                malhizKodu: item.malhizKodu,
+                                malhizAdi: item.malhizAdi,
+                                firmaAdi: item.firmaAdi,
+                                bolumAdi: bolumAdi
+                            });
+                        }
+                    }
+                }
             }
         });
         
