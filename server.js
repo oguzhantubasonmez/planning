@@ -2340,6 +2340,103 @@ app.get('/api/machine/planned-dates', async (req, res) => {
     }
 });
 
+// Makine için seçili tarihteki planlı işlerin detaylarını getirme endpoint'i
+app.get('/api/machine/busy-days-details', async (req, res) => {
+    let connection;
+    try {
+        const { makineAdi, tarih } = req.query;
+        
+        if (!makineAdi) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Makine adı gerekli' 
+            });
+        }
+        
+        if (!tarih) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Tarih gerekli' 
+            });
+        }
+        
+        connection = await pool.getConnection();
+        const makineAdiTrimmed = makineAdi.trim();
+        
+        // Tarih formatını kontrol et ve normalize et (YYYY-MM-DD)
+        let normalizedDate = tarih;
+        if (tarih.includes('/')) {
+            const parts = tarih.split('/');
+            if (parts.length === 3) {
+                normalizedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+        }
+        
+        // Seçili makine ve tarih için planlı işlerin detaylarını çek
+        const query = `
+            WITH ISEMRI_FILTERED AS (
+                SELECT * 
+                FROM ERPURT.T_URT_ISEMRI 
+                WHERE FABRIKA_KOD = 120 AND DURUMU = 1
+            )
+            SELECT 
+                PV.ISEMRI_ID,
+                PV.PLAN_ID,
+                PV.PLANLANAN_MIKTAR,
+                VD.ISEMRI_NO,
+                VD.MALHIZ_KODU,
+                VD.MALHIZ_ADI,
+                VD.FIRMA_ADI,
+                VD.PLAN_MIKTAR AS SIPARIS_MIKTAR
+            FROM ERPREADONLY.PLANLAMA_VERI PV
+            INNER JOIN ISEMRI_FILTERED IF ON PV.ISEMRI_ID = IF.ISEMRI_ID
+            LEFT JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID
+            WHERE TRIM(PV.MAK_AD) = :makineAdi
+            AND PV.PLANLAMA_DURUMU = 'PLANLANDI'
+            AND TRUNC(PV.PLAN_TARIHI) = TO_DATE(:tarih, 'YYYY-MM-DD')
+            ORDER BY VD.ISEMRI_NO ASC
+        `;
+        
+        const result = await connection.execute(query, { 
+            makineAdi: makineAdiTrimmed,
+            tarih: normalizedDate
+        });
+        
+        // MetaData'dan kolon adlarını al
+        const metaData = result.metaData.map(c => c.name);
+        const isler = result.rows.map(row => {
+            const job = {};
+            metaData.forEach((colName, index) => {
+                job[colName] = row[index];
+            });
+            return job;
+        });
+        
+        // Toplam miktarı hesapla
+        const toplamMiktar = isler.reduce((sum, job) => sum + (parseFloat(job.PLANLANAN_MIKTAR) || 0), 0);
+        
+        res.json({
+            success: true,
+            makineAdi: makineAdiTrimmed,
+            tarih: normalizedDate,
+            isler: isler,
+            toplamMiktar: toplamMiktar
+        });
+        
+    } catch (error) {
+        console.error('Makine dolu günler detay hatası:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Makine dolu günler detayları alınırken hata oluştu',
+            error: error.message 
+        });
+    } finally {
+        if (connection) {
+            await connection.close();
+        }
+    }
+});
+
 // Planlama verilerini getirme endpoint'i
 app.get('/api/planning-data', async (req, res) => {
     let connection;

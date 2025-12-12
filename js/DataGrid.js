@@ -5662,18 +5662,243 @@ class DataGrid {
         
         if (machineSelect) {
             machineSelect.innerHTML = options || '<option value="">Makine bulunamadı</option>';
+            
+            // Info ikonunu güncelle (eğer varsa)
+            const infoIcon = machineField.querySelector('#machineInfoIcon');
+            if (infoIcon) {
+                // Mevcut event listener'ları kaldır ve yeniden ekle
+                const newIcon = infoIcon.cloneNode(true);
+                infoIcon.parentNode.replaceChild(newIcon, infoIcon);
+                
+                newIcon.addEventListener('click', () => {
+                    const selectedMachine = machineSelect.value;
+                    if (selectedMachine) {
+                        // Modal'dan seçili tarihi al
+                        const modal = machineField.closest('.modal');
+                        let selectedDate = null;
+                        if (modal) {
+                            const tarihField = modal.querySelector('#planningTarih') || modal.querySelector('#yeniTarih');
+                            if (tarihField && tarihField.value) {
+                                // Flatpickr'dan gelen tarih d/m/Y formatında, YYYY-MM-DD formatına çevir
+                                const dateStr = tarihField.value;
+                                const parts = dateStr.split('/');
+                                if (parts.length === 3) {
+                                    selectedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                } else {
+                                    selectedDate = dateStr; // Zaten YYYY-MM-DD formatında olabilir
+                                }
+                            }
+                        }
+                        this.showMachineBusyDaysDetails(selectedMachine, selectedDate);
+                    } else {
+                        window.planningApp.showWarning('Lütfen önce bir makine seçin');
+                    }
+                });
+                
+                // Hover efekti
+                newIcon.addEventListener('mouseenter', () => {
+                    newIcon.style.backgroundColor = '#bbdefb';
+                    newIcon.style.transform = 'scale(1.1)';
+                });
+                newIcon.addEventListener('mouseleave', () => {
+                    newIcon.style.backgroundColor = '#e3f2fd';
+                    newIcon.style.transform = 'scale(1)';
+                });
+            }
         } else {
             // İlk kez oluşturuluyor
             machineField.innerHTML = `
                 <div class="form-group">
                     <div class="form-row">
-                        <label for="machineSelection">Makine Seçimi:</label>
+                        <label for="machineSelection" style="display: flex; align-items: center; gap: 8px;">
+                            <span class="machine-info-icon" id="machineInfoIcon" style="cursor: pointer; color: #1976d2; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background-color: #e3f2fd; transition: all 0.2s;" title="Seçili tarihteki planlı işlerin detaylarını göster">
+                                ℹ️
+                            </span>
+                            Makine Seçimi:
+                        </label>
                         <select id="machineSelection" name="selectedMachine" style="padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; width: 100%;">
                             ${options || '<option value="">Makine bulunamadı</option>'}
                         </select>
                     </div>
                 </div>
             `;
+            
+            // Info ikonuna tıklama event'i ekle
+            const infoIcon = machineField.querySelector('#machineInfoIcon');
+            if (infoIcon) {
+                infoIcon.addEventListener('click', () => {
+                    const machineSelect = machineField.querySelector('#machineSelection');
+                    const selectedMachine = machineSelect ? machineSelect.value : null;
+                    if (selectedMachine) {
+                        // Modal'dan seçili tarihi al
+                        const modal = machineField.closest('.modal');
+                        let selectedDate = null;
+                        if (modal) {
+                            const tarihField = modal.querySelector('#planningTarih') || modal.querySelector('#yeniTarih');
+                            if (tarihField && tarihField.value) {
+                                // Flatpickr'dan gelen tarih d/m/Y formatında, YYYY-MM-DD formatına çevir
+                                const dateStr = tarihField.value;
+                                const parts = dateStr.split('/');
+                                if (parts.length === 3) {
+                                    selectedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                } else {
+                                    selectedDate = dateStr; // Zaten YYYY-MM-DD formatında olabilir
+                                }
+                            }
+                        }
+                        this.showMachineBusyDaysDetails(selectedMachine, selectedDate);
+                    } else {
+                        window.planningApp.showWarning('Lütfen önce bir makine seçin');
+                    }
+                });
+                
+                // Hover efekti
+                infoIcon.addEventListener('mouseenter', () => {
+                    infoIcon.style.backgroundColor = '#bbdefb';
+                    infoIcon.style.transform = 'scale(1.1)';
+                });
+                infoIcon.addEventListener('mouseleave', () => {
+                    infoIcon.style.backgroundColor = '#e3f2fd';
+                    infoIcon.style.transform = 'scale(1)';
+                });
+            }
+        }
+    }
+    
+    /**
+     * Makine için seçili tarihteki planlı işlerin detaylarını gösterir
+     * @param {string} makineAdi - Makine adı
+     * @param {string|null} selectedDate - Seçili tarih (YYYY-MM-DD formatında)
+     */
+    async showMachineBusyDaysDetails(makineAdi, selectedDate = null) {
+        try {
+            if (!selectedDate) {
+                window.planningApp.showWarning('Lütfen önce bir tarih seçin');
+                return;
+            }
+            
+            // Loading göster
+            const loadingModal = document.createElement('div');
+            loadingModal.id = 'machineBusyDaysLoadingModal';
+            loadingModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            loadingModal.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px;">
+                    <div>Yükleniyor...</div>
+                </div>
+            `;
+            document.body.appendChild(loadingModal);
+            
+            // API'den veri çek (tarih parametresi ile)
+            const response = await fetch(`/api/machine/busy-days-details?makineAdi=${encodeURIComponent(makineAdi)}&tarih=${encodeURIComponent(selectedDate)}`);
+            const data = await response.json();
+            
+            // Loading modal'ı kaldır
+            loadingModal.remove();
+            
+            if (!data.success) {
+                window.planningApp.showError(data.message || 'Veri alınırken hata oluştu');
+                return;
+            }
+            
+            // Modal oluştur
+            let modal = document.getElementById('machineBusyDaysModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'machineBusyDaysModal';
+                modal.className = 'modal';
+                document.body.appendChild(modal);
+            }
+            
+            // Tarihi formatla (YYYY-MM-DD -> dd/mm/yyyy)
+            const tarihParts = selectedDate.split('-');
+            const formattedTarih = `${tarihParts[2]}/${tarihParts[1]}/${tarihParts[0]}`;
+            
+            // Modal içeriği
+            let contentHtml = `
+                <div class="modal-content" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
+                    <div class="modal-header">
+                        <h2>${makineAdi} - ${formattedTarih} Tarihindeki Planlı İşler</h2>
+                        <span class="close" onclick="document.getElementById('machineBusyDaysModal').style.display='none'">&times;</span>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+            `;
+            
+            if (data.isler && data.isler.length > 0) {
+                contentHtml += `
+                    <div style="margin-bottom: 15px; padding: 10px; background-color: #e3f2fd; border-radius: 6px; text-align: center;">
+                        <div style="font-weight: bold; color: #1976d2; font-size: 16px;">
+                            ${data.isler.length} iş • Toplam: ${data.toplamMiktar} adet
+                        </div>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background-color: #f5f5f5;">
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">İş Emri No</th>
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Malzeme Kodu</th>
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Malzeme Adı</th>
+                                <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Firma</th>
+                                <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Planlanan Miktar</th>
+                                <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Sipariş Miktarı</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.isler.forEach((is, isIndex) => {
+                    contentHtml += `
+                        <tr style="background-color: ${isIndex % 2 === 0 ? '#ffffff' : '#fafafa'};">
+                            <td style="padding: 8px; border: 1px solid #ddd;">${is.ISEMRI_NO || '-'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${is.MALHIZ_KODU || '-'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${is.MALHIZ_ADI || '-'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${is.FIRMA_ADI || '-'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #d32f2f;">${parseFloat(is.PLANLANAN_MIKTAR || 0).toLocaleString('tr-TR')}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${parseFloat(is.SIPARIS_MIKTAR || 0).toLocaleString('tr-TR')}</td>
+                        </tr>
+                    `;
+                });
+                
+                contentHtml += `
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                contentHtml += `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
+                        <div style="font-size: 18px; font-weight: bold;">Bu tarihte bu makine için planlı iş bulunmamaktadır.</div>
+                    </div>
+                `;
+            }
+            
+            contentHtml += `
+                    </div>
+                </div>
+            `;
+            
+            modal.innerHTML = contentHtml;
+            modal.style.display = 'block';
+            
+            // Modal dışına tıklandığında kapat
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+        } catch (error) {
+            console.error('Makine dolu günler detay hatası:', error);
+            window.planningApp.showError('Veri alınırken hata oluştu: ' + error.message);
         }
     }
     
