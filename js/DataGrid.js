@@ -5072,13 +5072,13 @@ class DataGrid {
             
             if (isMaca) {
                 // Makine tipini kontrol et (cache'li)
-                const machineInfo = await window.planningApp.checkMachineType(makineAdi);
-                
-                if (machineInfo.isUpperMachine) {
-                    // Üst makine - alt makineleri göster
-                    await this.openUpperMachinePlanningModal(item, modal, machineInfo);
-                } else {
-                    // Normal makine
+            const machineInfo = await window.planningApp.checkMachineType(makineAdi);
+            
+            if (machineInfo.isUpperMachine) {
+                // Üst makine - alt makineleri göster
+                await this.openUpperMachinePlanningModal(item, modal, machineInfo);
+            } else {
+                // Normal makine
                     await this.openNormalPlanningModal(item, modal);
                 }
             } else {
@@ -5682,9 +5682,9 @@ class DataGrid {
                         }
                     }
                     if (newDate) {
-                        await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
+                await this.updateMachineSelectionOptions(machineField, machines, [], defaultMachine, newDate, machineGroups);
                     }
-                });
+            });
             }
         } else {
             console.error('❌ Tarih alanı bulunamadı!');
@@ -6583,18 +6583,51 @@ class DataGrid {
                     planTarihi,
                     planlananMiktar
                 });
+                // Güncelleme no'yu bul
+                let currentGuncellemeNo = null;
+                if (currentItem.breakdowns && Array.isArray(currentItem.breakdowns)) {
+                    const currentBreakdown = currentItem.breakdowns.find(brk => 
+                        Number(brk.planId) === Number(currentItem.planId) || brk.planId === currentItem.planId
+                    );
+                    if (currentBreakdown && currentBreakdown.guncellemeNo) {
+                        currentGuncellemeNo = currentBreakdown.guncellemeNo;
+                    }
+                }
+                
+                const updateBody = {
+                    planId: currentItem.planId,
+                    planTarihi: planTarihi,
+                    planlananMiktar: planlananMiktar,
+                    selectedMachine: currentItem.selectedMachine || selectedMachine || currentItem.makAd || null, // Seçilen makineyi ekle
+                    aciklama: aciklama
+                };
+                
+                // Güncelleme no'yu ekle (eğer varsa)
+                if (currentGuncellemeNo) {
+                    updateBody.guncellemeNo = currentGuncellemeNo;
+                }
+                
                 const resp = await fetch('/api/planning/update', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        planId: currentItem.planId,
-                        planTarihi: planTarihi,
-                        planlananMiktar: planlananMiktar,
-                        selectedMachine: currentItem.selectedMachine || selectedMachine || currentItem.makAd || null, // Seçilen makineyi ekle
-                        aciklama: aciklama
-                    })
+                    body: JSON.stringify(updateBody)
                 });
+                
+                // 409 Conflict kontrolü - response.json() çağrısından önce
+                if (resp.status === 409) {
+                    result = await resp.json();
+                    this.showConcurrentUpdateModal(currentItem, updateBody, result.currentRecord);
+                    return;
+                }
+                
                 result = await resp.json();
+                
+                // 409 Conflict kontrolü (mesaj kontrolü ile)
+                if (!result.success && result.message && result.message.includes('yeni bir işlem yapılmış')) {
+                    this.showConcurrentUpdateModal(currentItem, updateBody, result.currentRecord);
+                    return;
+                }
+                
                 if (!result.success) throw new Error(result.message || 'Kırılım güncellenemedi');
             } else {
                 // Yeni plan: ana satırdan, geri çekilmiş kayıttan, kırılımı olmayan kayıttan veya frontend'de dinamik gösterilen bekleyen kırılımdan → INSERT
@@ -10424,6 +10457,38 @@ class DataGrid {
             }
         }
         
+        // Güncelleme no'yu bul
+        let guncellemeNo = null;
+        if (window.planningApp && window.planningApp.data) {
+            let mainRecord = null;
+            if (item.isemriId) {
+                mainRecord = window.planningApp.data.find(rec => rec.isemriId === item.isemriId);
+            } else if (item.isemriNo) {
+                mainRecord = window.planningApp.data.find(rec => rec.isemriNo === item.isemriNo);
+            }
+            
+            if (mainRecord && mainRecord.breakdowns) {
+                const currentBreakdown = mainRecord.breakdowns.find(brk => 
+                    Number(brk.planId) === numericPlanId || brk.planId === planId
+                );
+                if (currentBreakdown && currentBreakdown.guncellemeNo) {
+                    guncellemeNo = currentBreakdown.guncellemeNo;
+                }
+            }
+        }
+        
+        // Eğer hala bulunamadıysa item'dan al (fallback)
+        if (!guncellemeNo) {
+            if (isBreakdownUpdate && item.breakdowns && item.breakdowns.length > 0) {
+                const currentBreakdown = item.breakdowns.find(brk => 
+                    Number(brk.planId) === numericPlanId || brk.planId === planId || brk.parcaNo === item.isemriParcaNo
+                );
+                if (currentBreakdown && currentBreakdown.guncellemeNo) {
+                    guncellemeNo = currentBreakdown.guncellemeNo;
+                }
+            }
+        }
+        
         // Eğer hala bulunamadıysa item'dan al (fallback)
         if (!eskiTarih && !eskiMiktar) {
             if (isBreakdownUpdate && item.breakdowns && item.breakdowns.length > 0) {
@@ -10573,7 +10638,8 @@ class DataGrid {
                 miktarDegisti,
                 relatedBreakdowns,
                 waitingBreakdowns,
-                numericPlanId
+                numericPlanId,
+                guncellemeNo: guncellemeNo
             });
             return; // Modal'dan onaylandığında devam edecek
         }
@@ -10590,7 +10656,8 @@ class DataGrid {
             waitingBreakdowns: [],
             numericPlanId,
             updateRelatedAmounts: false,
-            updateTarget: 'waiting'
+            updateTarget: 'waiting',
+            guncellemeNo: guncellemeNo
         });
     }
 
@@ -10844,19 +10911,41 @@ class DataGrid {
         
         try {
             // Ana güncelleme
+            const updateBody = {
+                planId: numericPlanId,
+                planTarihi: planTarihi,
+                planlananMiktar: planlananMiktar,
+                selectedMachine: item.selectedMachine || selectedMachine || item.makAd || null
+            };
+            
+            // Güncelleme no'yu ekle (eğer varsa)
+            if (updateData.guncellemeNo) {
+                updateBody.guncellemeNo = updateData.guncellemeNo;
+            }
+            
             const response = await fetch('/api/planning/update', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    planId: numericPlanId,
-                    planTarihi: planTarihi,
-                    planlananMiktar: planlananMiktar,
-                    selectedMachine: item.selectedMachine || selectedMachine || item.makAd || null
-                })
+                body: JSON.stringify(updateBody)
             });
+            
+            // 409 Conflict kontrolü - response.json() çağrısından önce
+            if (response.status === 409) {
+                const result = await response.json();
+                this.showConcurrentUpdateModal(item, updateBody, result.currentRecord);
+                return;
+            }
+            
             const result = await response.json();
+            
+            // 409 Conflict - Güncelleme no uyuşmazlığı (mesaj kontrolü ile)
+            if (!result.success && result.message && result.message.includes('yeni bir işlem yapılmış')) {
+                this.showConcurrentUpdateModal(item, updateBody, result.currentRecord);
+                return;
+            }
+            
             if (result.success) {
                 console.log('Planlama güncelleme başarılı:', result);
                 
@@ -10877,19 +10966,41 @@ class DataGrid {
                         }
                         
                         try {
+                            const selectedJobUpdateBody = {
+                                planId: relatedNumericPlanId,
+                                planTarihi: selectedJob.newPlanTarihi,
+                                planlananMiktar: selectedJob.newPlanlananMiktar,
+                                selectedMachine: selectedJob.makAd || null
+                            };
+                            
+                            // Güncelleme no'yu ekle (eğer varsa)
+                            if (selectedJob.guncellemeNo) {
+                                selectedJobUpdateBody.guncellemeNo = selectedJob.guncellemeNo;
+                            }
+                            
                             const relatedResponse = await fetch('/api/planning/update', {
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                    planId: relatedNumericPlanId,
-                                    planTarihi: selectedJob.newPlanTarihi,
-                                    planlananMiktar: selectedJob.newPlanlananMiktar,
-                                    selectedMachine: selectedJob.makAd || null
-                                })
+                                body: JSON.stringify(selectedJobUpdateBody)
                             });
+                            
+                            // 409 Conflict kontrolü - response.json() çağrısından önce
+                            if (relatedResponse.status === 409) {
+                                const relatedResult = await relatedResponse.json();
+                                this.showConcurrentUpdateModal(selectedJob, selectedJobUpdateBody, relatedResult.currentRecord);
+                                return null;
+                            }
+                            
                             const relatedResult = await relatedResponse.json();
+                            
+                            // 409 Conflict kontrolü (mesaj kontrolü ile)
+                            if (!relatedResult.success && relatedResult.message && relatedResult.message.includes('yeni bir işlem yapılmış')) {
+                                this.showConcurrentUpdateModal(selectedJob, selectedJobUpdateBody, relatedResult.currentRecord);
+                                return null;
+                            }
+                            
                             if (relatedResult.success) {
                                 console.log(`Bağlı breakdown güncellendi: planId=${relatedNumericPlanId}, tarih=${selectedJob.newPlanTarihi}, miktar=${selectedJob.newPlanlananMiktar}`);
                                 return {
@@ -10946,19 +11057,41 @@ class DataGrid {
                             
                             console.log(`Bağlı breakdown güncelleniyor: planId=${relatedNumericPlanId}, eskiTarih=${relatedBrk.planTarihi}, yeniTarih=${yeniRelatedTarih}`);
                             
+                            const relatedUpdateBody = {
+                                planId: relatedNumericPlanId,
+                                planTarihi: yeniRelatedTarih,
+                                planlananMiktar: relatedBrk.planlananMiktar,
+                                selectedMachine: relatedBrk.makAd || null
+                            };
+                            
+                            // Güncelleme no'yu ekle (eğer varsa)
+                            if (relatedBrk.guncellemeNo) {
+                                relatedUpdateBody.guncellemeNo = relatedBrk.guncellemeNo;
+                            }
+                            
                             const relatedResponse = await fetch('/api/planning/update', {
                                 method: 'PUT',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                    planId: relatedNumericPlanId,
-                                    planTarihi: yeniRelatedTarih,
-                                    planlananMiktar: relatedBrk.planlananMiktar,
-                                    selectedMachine: relatedBrk.makAd || null
-                                })
+                                body: JSON.stringify(relatedUpdateBody)
                             });
+                            
+                            // 409 Conflict kontrolü - response.json() çağrısından önce
+                            if (relatedResponse.status === 409) {
+                                const relatedResult = await relatedResponse.json();
+                                this.showConcurrentUpdateModal(relatedBrk, relatedUpdateBody, relatedResult.currentRecord);
+                                return null;
+                            }
+                            
                             const relatedResult = await relatedResponse.json();
+                            
+                            // 409 Conflict kontrolü (mesaj kontrolü ile)
+                            if (!relatedResult.success && relatedResult.message && relatedResult.message.includes('yeni bir işlem yapılmış')) {
+                                this.showConcurrentUpdateModal(relatedBrk, relatedUpdateBody, relatedResult.currentRecord);
+                                return null;
+                            }
+                            
                             if (relatedResult.success) {
                                 console.log(`Bağlı breakdown güncellendi: planId=${relatedNumericPlanId}`);
                                 return {
@@ -11013,19 +11146,41 @@ class DataGrid {
                                 
                                 const relatedNumericPlanId = Number(relatedBrk.planId);
                                 
+                                const relatedUpdateBody = {
+                                    planId: relatedNumericPlanId,
+                                    planTarihi: relatedBrk.planTarihi || item.planlananTarih || planTarihi,
+                                    planlananMiktar: yeniMiktar,
+                                    selectedMachine: relatedBrk.makAd || null
+                                };
+                                
+                                // Güncelleme no'yu ekle (eğer varsa)
+                                if (relatedBrk.guncellemeNo) {
+                                    relatedUpdateBody.guncellemeNo = relatedBrk.guncellemeNo;
+                                }
+                                
                                 const relatedResponse = await fetch('/api/planning/update', {
                                     method: 'PUT',
                                     headers: {
                                         'Content-Type': 'application/json',
                                     },
-                                    body: JSON.stringify({
-                                        planId: relatedNumericPlanId,
-                                        planTarihi: relatedBrk.planTarihi || item.planlananTarih || planTarihi,
-                                        planlananMiktar: yeniMiktar,
-                                        selectedMachine: relatedBrk.makAd || null
-                                    })
+                                    body: JSON.stringify(relatedUpdateBody)
                                 });
+                                
+                                // 409 Conflict kontrolü - response.json() çağrısından önce
+                                if (relatedResponse.status === 409) {
+                                    const relatedResult = await relatedResponse.json();
+                                    this.showConcurrentUpdateModal(relatedBrk, relatedUpdateBody, relatedResult.currentRecord);
+                                    return null;
+                                }
+                                
                                 const relatedResult = await relatedResponse.json();
+                                
+                                // 409 Conflict kontrolü (mesaj kontrolü ile)
+                                if (!relatedResult.success && relatedResult.message && relatedResult.message.includes('yeni bir işlem yapılmış')) {
+                                    this.showConcurrentUpdateModal(relatedBrk, relatedUpdateBody, relatedResult.currentRecord);
+                                    return null;
+                                }
+                                
                                 if (relatedResult.success) {
                                     return {
                                         isemriId: relatedBrk.isemriId,
@@ -11089,11 +11244,17 @@ class DataGrid {
                     window.planningApp.showSuccess('Planlama başarıyla güncellendi!');
                 }, 0);
             } else {
-                window.planningApp.showError('Planlama güncellenirken hata oluştu: ' + result.message);
+                // 409 hatası değilse normal hata mesajı göster
+                if (!result.message || !result.message.includes('yeni bir işlem yapılmış')) {
+                    window.planningApp.showError('Planlama güncellenirken hata oluştu: ' + result.message);
+                }
             }
         } catch (error) {
             console.error('Güncelleme hatası:', error);
-            window.planningApp.showError('Güncelleme sırasında bir hata oluştu: ' + error.message);
+            // 409 hatası değilse normal hata mesajı göster
+            if (!error.message || !error.message.includes('yeni bir işlem yapılmış')) {
+                window.planningApp.showError('Güncelleme sırasında bir hata oluştu: ' + error.message);
+            }
         }
     }
     /**
@@ -12131,9 +12292,9 @@ class DataGrid {
                 }
             } else {
                 // Flatpickr fonksiyonları yoksa normal change event kullan
-                yeniTarihInput.addEventListener('change', () => {
-                    this.updateSplitResult(item);
-                });
+            yeniTarihInput.addEventListener('change', () => {
+                this.updateSplitResult(item);
+            });
             }
         }
 
@@ -14682,5 +14843,221 @@ class DataGrid {
                     return true;
             }
         }
+    }
+
+    /**
+     * Eşzamanlı güncelleme uyarı modalını gösterir
+     * @param {Object} item - Güncellenmeye çalışılan kayıt
+     * @param {Object} attemptedUpdate - Denenen güncelleme bilgileri
+     * @param {Object} currentRecord - Veritabanındaki güncel kayıt bilgileri
+     */
+    showConcurrentUpdateModal(item, attemptedUpdate, currentRecord) {
+        // Eğer zaten bir modal varsa kaldır
+        const existingModal = document.getElementById('concurrentUpdateModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Modal oluştur
+        const modal = document.createElement('div');
+        modal.id = 'concurrentUpdateModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        const attemptedDate = attemptedUpdate.planTarihi ? new Date(attemptedUpdate.planTarihi).toLocaleDateString('tr-TR') : '-';
+        const currentDate = currentRecord && currentRecord.planTarihi ? new Date(currentRecord.planTarihi).toLocaleDateString('tr-TR') : '-';
+        
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 16px;
+                padding: 0;
+                max-width: 600px;
+                width: 90%;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease;
+                overflow: hidden;
+            ">
+                <div style="
+                    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+                    color: white;
+                    padding: 24px 28px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                ">
+                    <div style="
+                        width: 48px;
+                        height: 48px;
+                        background: rgba(255,255,255,0.2);
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 24px;
+                    ">⚠️</div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 600;">Eşzamanlı Güncelleme Tespit Edildi</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Bu işle ilgili yeni bir işlem yapılmış</p>
+                    </div>
+                </div>
+                
+                <div style="padding: 28px;">
+                    <div style="
+                        background: #fff3cd;
+                        border-left: 4px solid #ffc107;
+                        padding: 16px;
+                        margin-bottom: 24px;
+                        border-radius: 4px;
+                        color: #856404;
+                    ">
+                        <strong>⚠️ Uyarı:</strong> Bu kayıt başka bir kullanıcı veya sekme tarafından güncellenmiş. 
+                        Güncel bilgileri görmek için sayfayı yenilemeniz gerekmektedir.
+                    </div>
+                    
+                    ${currentRecord ? `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="
+                                margin: 0 0 16px 0;
+                                color: #2d3748;
+                                font-size: 16px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            ">
+                                <span>📋</span> Mevcut Kayıt Bilgileri
+                            </h4>
+                            <div style="
+                                background: #f8f9fa;
+                                border: 1px solid #e9ecef;
+                                border-radius: 8px;
+                                padding: 16px;
+                            ">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                                    <div>
+                                        <strong style="color: #6c757d;">İş Emri No:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentRecord.isemriNo || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Malzeme:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentRecord.malhizKodu || '-'} ${currentRecord.malhizAdi ? '(' + currentRecord.malhizAdi + ')' : ''}</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Plan Tarihi:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentDate}</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Planlanan Miktar:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentRecord.planlananMiktar || 0} adet</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Makine:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentRecord.makAd || '-'}</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Güncelleme No:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${currentRecord.guncellemeNo || 1}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="
+                                margin: 0 0 16px 0;
+                                color: #2d3748;
+                                font-size: 16px;
+                                font-weight: 600;
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            ">
+                                <span>✏️</span> Denenen Güncelleme
+                            </h4>
+                            <div style="
+                                background: #f8f9fa;
+                                border: 1px solid #e9ecef;
+                                border-radius: 8px;
+                                padding: 16px;
+                            ">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                                    <div>
+                                        <strong style="color: #6c757d;">Plan Tarihi:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${attemptedDate}</div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: #6c757d;">Planlanan Miktar:</strong>
+                                        <div style="color: #2d3748; margin-top: 4px;">${attemptedUpdate.planlananMiktar || 0} adet</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 12px;
+                        margin-top: 24px;
+                    ">
+                        <button id="concurrentUpdateOkBtn" style="
+                            padding: 12px 32px;
+                            border: none;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 15px;
+                            font-weight: 600;
+                            transition: all 0.2s;
+                            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(102, 126, 234, 0.4)';" 
+                           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.3)';">
+                            Tamam
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Tamam butonu event listener
+        const okBtn = document.getElementById('concurrentUpdateOkBtn');
+        okBtn.addEventListener('click', () => {
+            modal.remove();
+            // Sayfayı yenile
+            window.location.reload();
+        });
+        
+        // ESC tuşu ile kapat ve sayfayı yenile
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleEsc);
+                window.location.reload();
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // Modal dışına tıklanınca kapat ve sayfayı yenile
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                window.location.reload();
+            }
+        });
     }
 }

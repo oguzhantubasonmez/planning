@@ -247,20 +247,38 @@ app.post('/api/planning', async (req, res) => {
                         }
                     }
                     
+                    // Mevcut GUNCELLEME_NO'yu al
+                    const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+                    const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: wr.PLAN_ID });
+                    const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+                    
                     const upd = `
                         UPDATE ERPREADONLY.PLANLAMA_VERI
                         SET PLAN_TARIHI = :planTarihi,
                             PLANLAMA_DURUMU = 'PLANLANDI',
                             MAK_AD = :targetMachine,
-                            MAK_ID = :targetMakId
+                            MAK_ID = :targetMakId,
+                            GUNCELLEME_NO = GUNCELLEME_NO + 1
                         WHERE PLAN_ID = :planId
+                          AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
                     `;
-                    await connection.execute(upd, {
+                    const updResult = await connection.execute(upd, {
                         planTarihi: planDateObj,
                         targetMachine: selectedMachine || null,
                         targetMakId: updateMakId,
-                        planId: wr.PLAN_ID
+                        planId: wr.PLAN_ID,
+                        guncellemeNo: mevcutGuncellemeNo
                     });
+                    
+                    if (updResult.rowsAffected === 0) {
+                        const currentRecord = await getCurrentRecordInfo(connection, wr.PLAN_ID);
+                        await connection.rollback();
+                        return res.status(409).json({
+                            success: false,
+                            message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                            currentRecord: currentRecord
+                        });
+                    }
                 }
                 await connection.commit();
                 return res.json({
@@ -287,8 +305,8 @@ app.post('/api/planning', async (req, res) => {
             // 1. Planlanan kısmı kaydet
             const insertQuery = `
                 INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama)
+                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama, 1)
                 RETURNING PLAN_ID INTO :planId
             `;
             
@@ -321,8 +339,8 @@ app.post('/api/planning', async (req, res) => {
             // Tam planlama - mevcut mantık
             const insertQuery = `
                 INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama)
+                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama, 1)
                 RETURNING PLAN_ID INTO :planId
             `;
             
@@ -424,16 +442,34 @@ app.post('/api/planning/split', async (req, res) => {
         const kalanMiktar = currentPlan.PLANLANAN_MIKTAR - splitMiktar;
         
         // 1. Mevcut kaydı güncelle (kalan miktar)
+        // Mevcut GUNCELLEME_NO'yu al
+        const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+        const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: parseInt(planId) });
+        const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+        
         const updateQuery = `
             UPDATE ERPREADONLY.PLANLAMA_VERI 
-            SET PLANLANAN_MIKTAR = :kalanMiktar
+            SET PLANLANAN_MIKTAR = :kalanMiktar,
+                GUNCELLEME_NO = GUNCELLEME_NO + 1
             WHERE PLAN_ID = :planId
+              AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
         `;
         
-        await connection.execute(updateQuery, {
+        const updateResult = await connection.execute(updateQuery, {
             planId: parseInt(planId),
-            kalanMiktar: kalanMiktar
+            kalanMiktar: kalanMiktar,
+            guncellemeNo: mevcutGuncellemeNo
         });
+        
+        if (updateResult.rowsAffected === 0) {
+            const currentRecord = await getCurrentRecordInfo(connection, parseInt(planId));
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                currentRecord: currentRecord
+            });
+        }
         
         // 2. Sonraki parça numarasını bul
         const nextParcaQuery = `
@@ -472,8 +508,8 @@ app.post('/api/planning/split', async (req, res) => {
         // 3. Yeni kayıt oluştur (bölünen miktar)
         const insertQuery = `
             INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-            (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID)
-            VALUES (:isemriId, :planTarihi, :parcaNo, :splitMiktar, 'PLANLANDI', :selectedMachine, :splitMakId)
+            (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, GUNCELLEME_NO)
+            VALUES (:isemriId, :planTarihi, :parcaNo, :splitMiktar, 'PLANLANDI', :selectedMachine, :splitMakId, 1)
             RETURNING PLAN_ID INTO :newPlanId
         `;
         const splitBind = {
@@ -1401,11 +1437,18 @@ app.post('/api/planning/queue-plan', async (req, res) => {
                                   PLANLANAN_MIKTAR = :miktar, 
                                   MAK_AD = :makAd,
                                   MAK_ID = :makId,
-                                  ACIKLAMA = :aciklama
-                              WHERE PLAN_ID = :planId`;
+                                  ACIKLAMA = :aciklama,
+                                  GUNCELLEME_NO = GUNCELLEME_NO + 1
+                              WHERE PLAN_ID = :planId
+                                AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo`;
             
             // Tüm UPDATE'leri sırayla yap
             for (const item of updateBatch) {
+                // Mevcut GUNCELLEME_NO'yu al
+                const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+                const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: item.planId });
+                const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+                
                 // MAK_ID'yi al
                 let makId = null;
                 if (item.makAd) {
@@ -1425,21 +1468,32 @@ app.post('/api/planning/queue-plan', async (req, res) => {
                     }
                 }
                 
-                await connection.execute(updateSQL, {
+                const updateResult = await connection.execute(updateSQL, {
                     planId: item.planId,
                     tarih: item.tarih,
                     miktar: item.miktar,
                     makAd: item.makAd,
                     makId: makId,
-                    aciklama: aciklama || null
+                    aciklama: aciklama || null,
+                    guncellemeNo: mevcutGuncellemeNo
                 });
+                
+                if (updateResult.rowsAffected === 0) {
+                    const currentRecord = await getCurrentRecordInfo(connection, item.planId);
+                    await connection.rollback();
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                        currentRecord: currentRecord
+                    });
+                }
             }
         }
         
         // Tüm INSERT'leri toplu olarak yap (autocommit kapalı, tek commit)
         if (insertBatch.length > 0) {
-            const insertSQL = `INSERT INTO ERPREADONLY.PLANLAMA_VERI (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                              VALUES (:id, :tarih, :parca, :miktar, 'PLANLANDI', :makAd, :makId, :aciklama)`;
+            const insertSQL = `INSERT INTO ERPREADONLY.PLANLAMA_VERI (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                              VALUES (:id, :tarih, :parca, :miktar, 'PLANLANDI', :makAd, :makId, :aciklama, 1)`;
             
             // Tüm INSERT'leri sırayla yap (commit yok, sadece execute)
             for (const item of insertBatch) {
@@ -1662,7 +1716,7 @@ try {
 app.put('/api/planning/update', async (req, res) => {
     let connection;
     try {
-        const { planId, planTarihi, planlananMiktar, selectedMachine, aciklama } = req.body;
+        const { planId, planTarihi, planlananMiktar, selectedMachine, aciklama, guncellemeNo } = req.body;
         
         // planId kontrolü - "queue-" ile başlayan geçici ID'leri reddet
         if (!planId || (typeof planId === 'string' && planId.startsWith('queue-'))) {
@@ -1710,7 +1764,8 @@ app.put('/api/planning/update', async (req, res) => {
             planId: numericPlanId,
             planTarihi,
             planlananMiktar: parsedPlanlananMiktar,
-            selectedMachine
+            selectedMachine,
+            guncellemeNo: guncellemeNo || 'gönderilmedi'
         });
         
         connection = await pool.getConnection();
@@ -1800,6 +1855,18 @@ app.put('/api/planning/update', async (req, res) => {
             }
         }
         
+        // Güncelleme no kontrolü: Frontend'den gönderilmişse onu kullan, yoksa veritabanından al
+        let mevcutGuncellemeNo = null;
+        if (guncellemeNo !== null && guncellemeNo !== undefined) {
+            // Frontend'den gönderilmiş
+            mevcutGuncellemeNo = parseInt(guncellemeNo) || 1;
+        } else {
+            // Veritabanından al
+            const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+            const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: numericPlanId });
+            mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+        }
+        
         // PLANLAMA_VERI tablosunda güncelleme yap
         const updateQuery = `
             UPDATE ERPREADONLY.PLANLAMA_VERI 
@@ -1808,8 +1875,10 @@ app.put('/api/planning/update', async (req, res) => {
                 PLANLAMA_DURUMU = 'PLANLANDI',
                 MAK_AD = :targetMachine,
                 MAK_ID = :targetMakId,
-                ACIKLAMA = :aciklama
+                ACIKLAMA = :aciklama,
+                GUNCELLEME_NO = GUNCELLEME_NO + 1
             WHERE PLAN_ID = :planId
+              AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
         `;
         
         // planTarihi'yi Oracle uyumlu formata çevir
@@ -1832,10 +1901,55 @@ app.put('/api/planning/update', async (req, res) => {
             planlananMiktar: parsedPlanlananMiktar,
             targetMachine: targetMachine,
             targetMakId: updateMakIdForSplit,
-            aciklama: aciklama || null
+            aciklama: aciklama || null,
+            guncellemeNo: mevcutGuncellemeNo
         };
         
         const result = await connection.execute(updateQuery, bindVars);
+        
+        if (result.rowsAffected === 0) {
+            // Mevcut kaydın güncel bilgilerini al
+            const currentRecordQuery = `
+                SELECT 
+                    PV.PLAN_ID,
+                    PV.ISEMRI_ID,
+                    PV.PLAN_TARIHI,
+                    PV.PLANLANAN_MIKTAR,
+                    PV.MAK_AD,
+                    PV.GUNCELLEME_NO,
+                    VD.ISEMRI_NO,
+                    VD.MALHIZ_KODU,
+                    VD.MALHIZ_ADI
+                FROM ERPREADONLY.PLANLAMA_VERI PV
+                LEFT JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID AND PV.ISEMRI_PARCA_NO = NVL(VD.ISEMRI_SIRA, 0)
+                WHERE PV.PLAN_ID = :planId
+            `;
+            const currentRecordResult = await connection.execute(currentRecordQuery, { planId: numericPlanId });
+            
+            let currentRecord = null;
+            if (currentRecordResult.rows.length > 0) {
+                const row = currentRecordResult.rows[0];
+                currentRecord = {
+                    planId: row[0],
+                    isemriId: row[1],
+                    planTarihi: row[2] ? new Date(row[2]).toISOString().split('T')[0] : null,
+                    planlananMiktar: row[3],
+                    makAd: row[4],
+                    guncellemeNo: row[5] || 1,
+                    isemriNo: row[6],
+                    malhizKodu: row[7],
+                    malhizAdi: row[8]
+                };
+            }
+            
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                currentRecord: currentRecord
+            });
+        }
+        
         await connection.commit();
         
         console.log('Planlama verisi başarıyla güncellendi:', bindVars);
@@ -2023,8 +2137,8 @@ app.put('/api/planning/update-machine', async (req, res) => {
             // Yeni planlama kaydı oluştur (makine bilgisi ile, planlanmamış durumda)
             const insertQuery = `
                 INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                VALUES (:isemriId, NULL, :parcaNo, 0, 'BEKLEMEDE', :newMachine, :newMachineMakId, 'Makine değiştirildi')
+                (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                VALUES (:isemriId, NULL, :parcaNo, 0, 'BEKLEMEDE', :newMachine, :newMachineMakId, 'Makine değiştirildi', 1)
             `;
             
             await connection.execute(insertQuery, {
@@ -2457,6 +2571,7 @@ app.get('/api/planning-data', async (req, res) => {
                 PV.PLAN_TARIHI,
                 PV.PLANLANAN_MIKTAR,
                 PV.PLANLAMA_DURUMU,
+                PV.GUNCELLEME_NO,
                 VD.ISEMRI_NO,
                 VD.MALHIZ_KODU,
                 VD.MALHIZ_ADI,
@@ -2493,6 +2608,7 @@ app.get('/api/planning-data', async (req, res) => {
                 planTarihi: item.PLAN_TARIHI ? new Date(item.PLAN_TARIHI).toISOString().split('T')[0] : null,
                 planlananMiktar: item.PLANLANAN_MIKTAR,
                 planlamaDurumu: item.PLANLAMA_DURUMU,
+                guncellemeNo: item.GUNCELLEME_NO || 1,
                 malhizKodu: item.MALHIZ_KODU,
                 malhizAdi: item.MALHIZ_ADI,
                 agirlik: (() => {
@@ -3147,6 +3263,7 @@ app.get('/api/data', async (req, res) => {
                 PV.MAK_AD,
                 PV.MAK_ID,
                 PV.ACIKLAMA,
+                PV.GUNCELLEME_NO,
                 VD.BOLUM_ADI
             FROM ERPREADONLY.PLANLAMA_VERI PV
             INNER JOIN ISEMRI_FILTERED IF ON PV.ISEMRI_ID = IF.ISEMRI_ID
@@ -3190,7 +3307,8 @@ app.get('/api/data', async (req, res) => {
                 makAd: item.MAK_AD,
                 makId: item.MAK_ID || null,
                 bolumAdi: item.BOLUM_ADI || null,
-                aciklama: aciklamaValue || null
+                aciklama: aciklamaValue || null,
+                guncellemeNo: item.GUNCELLEME_NO || 1
             };
             
             planningDataByIsemriId[isemriId].breakdowns.push(breakdown);
@@ -3820,6 +3938,52 @@ app.get('/api/order-tracking/:isemriNo', async (req, res) => {
 });
 
 // Durum belirleme fonksiyonu
+/**
+ * Mevcut kayıt bilgilerini getirir (409 hatası için)
+ * @param {Object} connection - Oracle bağlantısı
+ * @param {number} planId - Plan ID
+ * @returns {Promise<Object|null>} Mevcut kayıt bilgileri
+ */
+async function getCurrentRecordInfo(connection, planId) {
+    try {
+        const currentRecordQuery = `
+            SELECT 
+                PV.PLAN_ID,
+                PV.ISEMRI_ID,
+                PV.PLAN_TARIHI,
+                PV.PLANLANAN_MIKTAR,
+                PV.MAK_AD,
+                PV.GUNCELLEME_NO,
+                VD.ISEMRI_NO,
+                VD.MALHIZ_KODU,
+                VD.MALHIZ_ADI
+            FROM ERPREADONLY.PLANLAMA_VERI PV
+            LEFT JOIN ERPREADONLY.V_ISEMRI_DETAY VD ON PV.ISEMRI_ID = VD.ISEMRI_ID AND PV.ISEMRI_PARCA_NO = NVL(VD.ISEMRI_SIRA, 0)
+            WHERE PV.PLAN_ID = :planId
+        `;
+        const currentRecordResult = await connection.execute(currentRecordQuery, { planId: planId });
+        
+        if (currentRecordResult.rows.length > 0) {
+            const row = currentRecordResult.rows[0];
+            return {
+                planId: row.PLAN_ID,
+                isemriId: row.ISEMRI_ID,
+                planTarihi: row.PLAN_TARIHI ? new Date(row.PLAN_TARIHI).toISOString().split('T')[0] : null,
+                planlananMiktar: row.PLANLANAN_MIKTAR,
+                makAd: row.MAK_AD,
+                guncellemeNo: row.GUNCELLEME_NO || 1,
+                isemriNo: row.ISEMRI_NO,
+                malhizKodu: row.MALHIZ_KODU,
+                malhizAdi: row.MALHIZ_ADI
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Mevcut kayıt bilgileri alınırken hata:', error);
+        return null;
+    }
+}
+
 function determineStatus(item) {
     const planlananMiktar = item.KIRILIM_PLANLANAN_MIKTAR || 0;
     const planMiktar = item.PLAN_MIKTAR || 0;
@@ -4068,16 +4232,34 @@ app.put('/api/planning/update-aciklama', async (req, res) => {
         
         connection = await pool.getConnection();
         
+        // Mevcut GUNCELLEME_NO'yu al
+        const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+        const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: numericPlanId });
+        const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+        
         const updateQuery = `
             UPDATE ERPREADONLY.PLANLAMA_VERI 
-            SET ACIKLAMA = :aciklama
+            SET ACIKLAMA = :aciklama,
+                GUNCELLEME_NO = GUNCELLEME_NO + 1
             WHERE PLAN_ID = :planId
+              AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
         `;
         
-        await connection.execute(updateQuery, {
+        const result = await connection.execute(updateQuery, {
             planId: numericPlanId,
-            aciklama: aciklama || null
+            aciklama: aciklama || null,
+            guncellemeNo: mevcutGuncellemeNo
         });
+        
+        if (result.rowsAffected === 0) {
+            const currentRecord = await getCurrentRecordInfo(connection, numericPlanId);
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                currentRecord: currentRecord
+            });
+        }
         
         await connection.commit();
         
@@ -4123,15 +4305,22 @@ app.post('/api/planning/update-date', async (req, res) => {
         connection = await oracledb.getConnection(dbConfig);
         console.log('Oracle bağlantısı başarılı');
 
+        // Mevcut GUNCELLEME_NO'yu al
+        const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+        const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: planId });
+        const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+
         // PLANLAMA_VERI tablosunda PLAN_ID ile güncelle
         let updateQuery = `
             UPDATE ERPREADONLY.PLANLAMA_VERI 
-            SET PLAN_TARIHI = TO_DATE(:newDate || ' 03:00:00', 'YYYY-MM-DD HH24:MI:SS')
+            SET PLAN_TARIHI = TO_DATE(:newDate || ' 03:00:00', 'YYYY-MM-DD HH24:MI:SS'),
+                GUNCELLEME_NO = GUNCELLEME_NO + 1
         `;
         
         const bindVars = {
             newDate: newDate,
-            planId: planId
+            planId: planId,
+            guncellemeNo: mevcutGuncellemeNo
         };
         
         // Eğer makine değişikliği varsa ekle
@@ -4140,12 +4329,22 @@ app.post('/api/planning/update-date', async (req, res) => {
             bindVars.selectedMachine = selectedMachine;
         }
         
-        updateQuery += ` WHERE PLAN_ID = :planId`;
+        updateQuery += ` WHERE PLAN_ID = :planId AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo`;
 
         console.log('SQL Query:', updateQuery);
         console.log('Bind parameters:', bindVars);
 
         const result = await connection.execute(updateQuery, bindVars, { autoCommit: true });
+        
+        if (result.rowsAffected === 0) {
+            const currentRecord = await getCurrentRecordInfo(connection, planId);
+            await connection.close();
+            return res.status(409).json({
+                success: false,
+                message: 'Bu işle ilgili yeni bir işlem yapılmış, güncel hali için sayfayı yenileyiniz',
+                currentRecord: currentRecord
+            });
+        }
 
         console.log(`Plan tarihi güncellendi: ${result.rowsAffected} kayıt etkilendi`);
 
@@ -4348,17 +4547,30 @@ app.post('/api/planning/transfer-delayed', async (req, res) => {
             if (gercekMiktar > 0) {
                 console.log(`  İşlem: Gerçekleşmiş miktar var (${gercekMiktar}), mevcut kayıt güncellenecek, kalan (${kalanMiktar}) yeni kayıt olarak eklenecek`);
                 // Durum 1: Gerçekleşmiş miktar var
+                // Mevcut GUNCELLEME_NO'yu al
+                const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+                const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: job.planId });
+                const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+                
                 // Mevcut kaydın planlanan miktarını gerçekleşmiş miktara güncelle
                 const updateQuery = `
                     UPDATE ERPREADONLY.PLANLAMA_VERI
-                    SET PLANLANAN_MIKTAR = :gercekMiktar
+                    SET PLANLANAN_MIKTAR = :gercekMiktar,
+                        GUNCELLEME_NO = GUNCELLEME_NO + 1
                     WHERE PLAN_ID = :planId
+                      AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
                 `;
                 const updateResult = await connection.execute(updateQuery, {
                     gercekMiktar: gercekMiktar,
-                    planId: job.planId
+                    planId: job.planId,
+                    guncellemeNo: mevcutGuncellemeNo
                 });
                 console.log(`  UPDATE sonucu: ${updateResult.rowsAffected} satır güncellendi`);
+                
+                if (updateResult.rowsAffected === 0) {
+                    console.log(`  ⚠️ Güncelleme başarısız: Bu işle ilgili yeni bir işlem yapılmış`);
+                    continue; // Bu kaydı atla, diğerlerine devam et
+                }
                 
                 // MAK_ID'yi al
                 let transferMakId = null;
@@ -4388,7 +4600,8 @@ app.post('/api/planning/transfer-delayed', async (req, res) => {
                         PLANLANAN_MIKTAR,
                         PLANLAMA_DURUMU,
                         MAK_AD,
-                        MAK_ID
+                        MAK_ID,
+                        GUNCELLEME_NO
                     ) VALUES (
                         :isemriId,
                         :isemriParcaNo,
@@ -4396,7 +4609,8 @@ app.post('/api/planning/transfer-delayed', async (req, res) => {
                         :planlananMiktar,
                         'PLANLANDI',
                         :makAd,
-                        :makId
+                        :makId,
+                        1
                     )
                 `;
                 
@@ -4458,16 +4672,29 @@ app.post('/api/planning/transfer-delayed', async (req, res) => {
                 });
             } else {
                 // Durum 2: Gerçekleşmiş miktar yok
+                // Mevcut GUNCELLEME_NO'yu al
+                const guncellemeNoQuery = `SELECT NVL(GUNCELLEME_NO, 1) FROM ERPREADONLY.PLANLAMA_VERI WHERE PLAN_ID = :planId`;
+                const guncellemeNoResult = await connection.execute(guncellemeNoQuery, { planId: job.planId });
+                const mevcutGuncellemeNo = guncellemeNoResult.rows.length > 0 ? (guncellemeNoResult.rows[0][0] || 1) : 1;
+                
                 // Mevcut kaydın tarihini bugüne güncelle (yeni kayıt oluşturma)
                 const updateQuery = `
                     UPDATE ERPREADONLY.PLANLAMA_VERI
-                    SET PLAN_TARIHI = TO_DATE(:planTarihi || ' 03:00:00', 'YYYY-MM-DD HH24:MI:SS')
+                    SET PLAN_TARIHI = TO_DATE(:planTarihi || ' 03:00:00', 'YYYY-MM-DD HH24:MI:SS'),
+                        GUNCELLEME_NO = GUNCELLEME_NO + 1
                     WHERE PLAN_ID = :planId
+                      AND NVL(GUNCELLEME_NO, 1) = :guncellemeNo
                 `;
-                await connection.execute(updateQuery, {
+                const updateResult = await connection.execute(updateQuery, {
                     planTarihi: bugunStr,
-                    planId: job.planId
+                    planId: job.planId,
+                    guncellemeNo: mevcutGuncellemeNo
                 });
+                
+                if (updateResult.rowsAffected === 0) {
+                    console.log(`  ⚠️ Güncelleme başarısız: Bu işle ilgili yeni bir işlem yapılmış`);
+                    continue; // Bu kaydı atla, diğerlerine devam et
+                }
                 
                 transferredPlans.push({
                     planId: job.planId,
@@ -4800,8 +5027,8 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                     // Kısmi planlama
                     const insertQuery = `
                         INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                        (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                        VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama)
+                        (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                        VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama, 1)
                         RETURNING PLAN_ID INTO :planId
                     `;
                     
@@ -4825,8 +5052,8 @@ app.post('/api/product-based-planning/plan', async (req, res) => {
                     // Tam planlama
                     const insertQuery = `
                         INSERT INTO ERPREADONLY.PLANLAMA_VERI 
-                        (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA)
-                        VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama)
+                        (ISEMRI_ID, PLAN_TARIHI, ISEMRI_PARCA_NO, PLANLANAN_MIKTAR, PLANLAMA_DURUMU, MAK_AD, MAK_ID, ACIKLAMA, GUNCELLEME_NO)
+                        VALUES (:isemriId, :planTarihi, 1, :planlananMiktar, 'PLANLANDI', :targetMachine, :targetMakId, :aciklama, 1)
                         RETURNING PLAN_ID INTO :planId
                     `;
                     
