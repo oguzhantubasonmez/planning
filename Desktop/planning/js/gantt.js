@@ -21,14 +21,29 @@ class GanttChart {
      * Gantt yapısını başlatır
      */
     async init() {
-        // Makine mapping'ini yükle
-        await this.loadMachineMapping();
-        
-        // Gantt container'ını oluştur
-        this.createGanttContainer();
-        
-        // Event listener'ları bağla
-        this.bindEvents();
+        try {
+            console.log('🔧 Gantt init başlatılıyor...');
+            
+            // Makine mapping'ini yükle
+            await this.loadMachineMapping();
+            
+            // Gantt container'ını oluştur
+            this.createGanttContainer();
+            
+            // Container'ın DOM'a eklendiğinden emin ol
+            if (!this.container || !document.body.contains(this.container)) {
+                console.error('❌ Gantt container DOM\'a eklenemedi');
+                return;
+            }
+            
+            // Event listener'ları bağla
+            this.bindEvents();
+            
+            console.log('✅ Gantt init tamamlandı');
+        } catch (error) {
+            console.error('❌ Gantt init hatası:', error);
+            throw error;
+        }
     }
 
     /**
@@ -86,32 +101,47 @@ class GanttChart {
      * Gantt container'ını oluşturur
      */
     createGanttContainer() {
-        // Ana container
-        const ganttContainer = document.createElement('div');
-        ganttContainer.id = 'gantt-container';
-        ganttContainer.className = 'gantt-container';
-        
-        // Header - Filtreler ve kapatma butonu
-        const header = this.createHeader();
-        ganttContainer.appendChild(header);
-        
-        // Ana içerik alanı
-        const content = document.createElement('div');
-        content.className = 'gantt-content';
-        
-        // Sol panel - Makine listesi
-        const leftPanel = this.createMachinePanel();
-        content.appendChild(leftPanel);
-        
-        // Sağ panel - Gantt chart alanı
-        const rightPanel = this.createGanttPanel();
-        content.appendChild(rightPanel);
-        
-        ganttContainer.appendChild(content);
-        
-        // Body'ye ekle (başlangıçta gizli)
-        document.body.appendChild(ganttContainer);
-        this.container = ganttContainer;
+        try {
+            // Eğer container zaten varsa, mevcut olanı kullan
+            let ganttContainer = document.getElementById('gantt-container');
+            
+            if (!ganttContainer) {
+                // Ana container
+                ganttContainer = document.createElement('div');
+                ganttContainer.id = 'gantt-container';
+                ganttContainer.className = 'gantt-container';
+                ganttContainer.style.display = 'none'; // Başlangıçta gizli
+                
+                // Header - Filtreler ve kapatma butonu
+                const header = this.createHeader();
+                ganttContainer.appendChild(header);
+                
+                // Ana içerik alanı
+                const content = document.createElement('div');
+                content.className = 'gantt-content';
+                
+                // Sol panel - Makine listesi
+                const leftPanel = this.createMachinePanel();
+                content.appendChild(leftPanel);
+                
+                // Sağ panel - Gantt chart alanı
+                const rightPanel = this.createGanttPanel();
+                content.appendChild(rightPanel);
+                
+                ganttContainer.appendChild(content);
+                
+                // Body'ye ekle (başlangıçta gizli)
+                document.body.appendChild(ganttContainer);
+                console.log('✅ Gantt container DOM\'a eklendi');
+            } else {
+                console.log('ℹ️ Gantt container zaten mevcut');
+            }
+            
+            this.container = ganttContainer;
+        } catch (error) {
+            console.error('❌ Gantt container oluşturma hatası:', error);
+            throw error;
+        }
     }
 
     /**
@@ -2285,15 +2315,63 @@ class GanttChart {
 
 // Global instance
 let ganttChart = null;
+let ganttChartInitializing = false;
 
 /**
  * Gantt görünümünü açar
  */
-function openGanttView() {
-    if (!ganttChart) {
-        ganttChart = new GanttChart();
+async function openGanttView() {
+    try {
+        // Eğer henüz oluşturulmadıysa oluştur
+        if (!ganttChart) {
+            if (ganttChartInitializing) {
+                // Zaten başlatılıyorsa bekle
+                console.log('⏳ Gantt zaten başlatılıyor, bekleniyor...');
+                // Başlatma tamamlanana kadar bekle
+                while (ganttChartInitializing) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                // Başlatma tamamlandıktan sonra tekrar kontrol et
+                if (!ganttChart || !ganttChart.container) {
+                    console.error('❌ Gantt başlatılamadı');
+                    return;
+                }
+            } else {
+                console.log('🚀 Gantt başlatılıyor...');
+                ganttChartInitializing = true;
+                ganttChart = new GanttChart();
+                // init() tamamlanana kadar bekle
+                await ganttChart.init();
+                ganttChartInitializing = false;
+                console.log('✅ Gantt başlatıldı');
+            }
+        }
+        
+        // Container hazır olduğundan emin ol
+        if (ganttChart && ganttChart.container) {
+            console.log('📊 Gantt gösteriliyor...');
+            ganttChart.show();
+        } else {
+            console.warn('⚠️ Gantt container hazır değil, bekleniyor...');
+            // Container henüz hazır değilse kısa bir süre bekle
+            let retries = 0;
+            const maxRetries = 10;
+            const checkContainer = setInterval(() => {
+                retries++;
+                if (ganttChart && ganttChart.container) {
+                    clearInterval(checkContainer);
+                    console.log('✅ Gantt container hazır, gösteriliyor...');
+                    ganttChart.show();
+                } else if (retries >= maxRetries) {
+                    clearInterval(checkContainer);
+                    console.error('❌ Gantt container hazırlanamadı');
+                }
+            }, 100);
+        }
+    } catch (error) {
+        console.error('❌ Gantt açılırken hata:', error);
+        ganttChartInitializing = false;
     }
-    ganttChart.show();
 }
 
 /**
