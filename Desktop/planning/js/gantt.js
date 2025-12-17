@@ -2241,6 +2241,9 @@ class GanttChart {
             document.documentElement.style.padding = '0';
             document.documentElement.style.overflow = 'hidden';
             
+            // Mevcut bölüm seçimini ChartManager'dan al ve uygula
+            this.syncBolumFromChartManager();
+            
             // Makine listesini güncelle
             this.updateMachineList();
             // Varsayılan tarih aralığı ile zaman çizelgesini oluştur
@@ -2252,6 +2255,49 @@ class GanttChart {
             } else {
                 this.clearTimeline();
             }
+        }
+    }
+    
+    /**
+     * ChartManager'dan mevcut bölüm seçimini alır ve Gantt'a uygular
+     */
+    syncBolumFromChartManager() {
+        try {
+            // ChartManager'dan seçili bölümü al
+            const chartManager = window.chartManager;
+            if (chartManager && chartManager.selectedDepartment) {
+                const currentBolum = chartManager.selectedDepartment;
+                
+                // Bölüm dropdown'ını bul
+                const bolumFilter = document.getElementById('gantt-bolum-filter');
+                if (bolumFilter) {
+                    // Bölüm seçeneklerinde bu bölüm var mı kontrol et
+                    const optionExists = Array.from(bolumFilter.options).some(
+                        option => option.value === currentBolum
+                    );
+                    
+                    if (optionExists) {
+                        // Bölümü seç
+                        bolumFilter.value = currentBolum;
+                        this.selectedBolum = currentBolum;
+                        console.log('✅ Gantt - Mevcut bölüm seçildi:', currentBolum);
+                    } else {
+                        console.warn('⚠️ Gantt - Bölüm bulunamadı:', currentBolum);
+                        // Bölüm yoksa varsayılan olarak "Tüm Bölümler" seçili kalır
+                        bolumFilter.value = '';
+                        this.selectedBolum = null;
+                    }
+                }
+            } else {
+                // ChartManager'da bölüm seçili değilse varsayılan olarak "Tüm Bölümler"
+                const bolumFilter = document.getElementById('gantt-bolum-filter');
+                if (bolumFilter) {
+                    bolumFilter.value = '';
+                    this.selectedBolum = null;
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Gantt - Bölüm senkronizasyonu hatası:', error);
         }
     }
 
