@@ -1147,6 +1147,7 @@ class GanttChart {
                         periodCell.dataset.periodStart = periodStartStr;
                         periodCell.dataset.periodEnd = periodEndStr;
                         periodCell.dataset.machine = machineNormalized;
+                        periodCell.dataset.machineOriginal = machineTrimmed; // Orijinal makine adını sakla
                         // Responsive genişlik kullan (header ile aynı)
                         const cellWidth = this.getCellWidth(periodCount);
                         periodCell.style.width = `${cellWidth}px`;
@@ -1159,6 +1160,9 @@ class GanttChart {
                         if (today >= period.start && today <= period.end) {
                             periodCell.classList.add('gantt-timeline-day-column-today');
                         }
+                        
+                        // Drop zone özelliği ekle
+                        this.setupCellDropZone(periodCell);
                         
                         machineRow.appendChild(periodCell);
                     });
@@ -1228,31 +1232,35 @@ class GanttChart {
                         periods.forEach((period, periodIndex) => {
                             const periodStartStr = period.start.toISOString().split('T')[0];
                             const periodEndStr = period.end.toISOString().split('T')[0];
-                            const periodCell = document.createElement('div');
-                            periodCell.className = 'gantt-day-cell';
-                            periodCell.dataset.periodIndex = periodIndex;
-                            periodCell.dataset.periodStart = periodStartStr;
-                            periodCell.dataset.periodEnd = periodEndStr;
-                            periodCell.dataset.machine = machineNormalized;
-                            // Günlük görünüm için date de ekle (populateGrid için)
-                            if (this.viewType === 'daily') {
-                                periodCell.dataset.date = periodStartStr;
-                            }
-                            // Sabit genişlik kullan (scroll için gerekli)
-                            // Responsive genişlik kullan (header ile aynı)
-                            const cellWidth = this.getCellWidth(periodCount);
-                            periodCell.style.width = `${cellWidth}px`;
-                            periodCell.style.minWidth = `${this.getMinCellWidth()}px`;
-                            periodCell.style.flex = `0 0 ${cellWidth}px`; // Shrink ve grow yok, responsive genişlik
-                            
-                            // Bugün bu dönem içinde mi kontrol et
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            if (today >= period.start && today <= period.end) {
-                                periodCell.classList.add('gantt-timeline-day-column-today');
-                            }
-                            
-                            machineRow.appendChild(periodCell);
+                        const periodCell = document.createElement('div');
+                        periodCell.className = 'gantt-day-cell';
+                        periodCell.dataset.periodIndex = periodIndex;
+                        periodCell.dataset.periodStart = periodStartStr;
+                        periodCell.dataset.periodEnd = periodEndStr;
+                        periodCell.dataset.machine = machineNormalized;
+                        periodCell.dataset.machineOriginal = machineTrimmed; // Orijinal makine adını sakla
+                        // Günlük görünüm için date de ekle (populateGrid için)
+                        if (this.viewType === 'daily') {
+                            periodCell.dataset.date = periodStartStr;
+                        }
+                        // Sabit genişlik kullan (scroll için gerekli)
+                        // Responsive genişlik kullan (header ile aynı)
+                        const cellWidth = this.getCellWidth(periodCount);
+                        periodCell.style.width = `${cellWidth}px`;
+                        periodCell.style.minWidth = `${this.getMinCellWidth()}px`;
+                        periodCell.style.flex = `0 0 ${cellWidth}px`; // Shrink ve grow yok, responsive genişlik
+                        
+                        // Bugün bu dönem içinde mi kontrol et
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (today >= period.start && today <= period.end) {
+                            periodCell.classList.add('gantt-timeline-day-column-today');
+                        }
+                        
+                        // Drop zone özelliği ekle
+                        this.setupCellDropZone(periodCell);
+                        
+                        machineRow.appendChild(periodCell);
                         });
                         
                         timelineBody.appendChild(machineRow);
@@ -1356,6 +1364,14 @@ class GanttChart {
     populateGrid() {
         const timelineBody = document.getElementById('gantt-timeline-body');
         if (!timelineBody) return;
+        
+        // Tüm tooltip'leri temizle - grid yeniden oluşturulurken eski tooltip'lerin kalmasını önle
+        const allTooltips = document.querySelectorAll('.gantt-job-tooltip');
+        allTooltips.forEach(tooltip => {
+            if (tooltip.parentNode) {
+                tooltip.parentNode.removeChild(tooltip);
+            }
+        });
         
         // Tüm hücreleri temizle
         const cells = timelineBody.querySelectorAll('.gantt-day-cell');
@@ -1559,10 +1575,13 @@ class GanttChart {
                 // Planlı iş kartını oluştur
                 const jobCard = document.createElement('div');
                 jobCard.className = 'gantt-job-card';
+                jobCard.draggable = true; // Drag özelliği ekle
                 jobCard.dataset.planId = plan.planId || plan.PLAN_ID;
                 jobCard.dataset.isemriId = plan.isemriId || plan.ISEMRI_ID;
                 jobCard.dataset.machine = machineNormalized;
                 jobCard.dataset.date = planDateStr;
+                jobCard.dataset.planlananMiktar = plan.planlananMiktar || plan.PLANLANAN_MIKTAR || 0;
+                jobCard.dataset.machineOriginal = plan.makAd || plan.MAK_AD || machineNormalized;
                 
                 // Görünüm tipine göre stil ayarla
                 if (this.viewType === 'weekly' || this.viewType === 'monthly') {
@@ -1590,6 +1609,9 @@ class GanttChart {
                 
                 // Hover tooltip ekle
                 this.setupJobCardTooltip(jobCard, plan);
+                
+                // Drag and drop event listener'ları ekle
+                this.setupJobCardDragAndDrop(jobCard, plan);
                 
                 cell.appendChild(jobCard);
                 placedCount++;
@@ -1629,6 +1651,7 @@ class GanttChart {
         let tooltip = null;
         let hideTimeout = null;
         let showTimeout = null;
+        let isHiding = false; // Tooltip gizleniyor mu kontrolü
         
         // Plan bilgilerini al
         const urunKodu = plan.malhizKodu || plan.MALHIZ_KODU || '-';
@@ -1657,8 +1680,20 @@ class GanttChart {
         
         // Tooltip oluştur
         const createTooltip = () => {
+            // Eğer tooltip zaten varsa ve DOM'da ise, onu kullan
             if (tooltip && tooltip.parentNode) {
+                // Eğer gizleniyorsa, gizleme işlemini iptal et
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
+                    isHiding = false;
+                }
                 return tooltip;
+            }
+            
+            // Eğer tooltip varsa ama DOM'da değilse, temizle
+            if (tooltip) {
+                tooltip = null;
             }
             
             tooltip = document.createElement('div');
@@ -1701,9 +1736,12 @@ class GanttChart {
                 ` : ''}
             `;
             
-            // Önce görünmez ekle
+            // Önce görünmez ekle - display: none ile başlat
             tooltip.style.setProperty('left', '-9999px', 'important');
             tooltip.style.setProperty('top', '-9999px', 'important');
+            tooltip.style.setProperty('opacity', '0', 'important');
+            tooltip.style.setProperty('visibility', 'hidden', 'important');
+            tooltip.style.setProperty('display', 'none', 'important');
             document.body.appendChild(tooltip);
             
             return tooltip;
@@ -1711,9 +1749,11 @@ class GanttChart {
         
         // Tooltip'i göster
         const showTooltip = (e) => {
+            // Eğer gizleniyorsa, gizleme işlemini iptal et
             if (hideTimeout) {
                 clearTimeout(hideTimeout);
                 hideTimeout = null;
+                isHiding = false;
             }
             
             if (showTimeout) {
@@ -1721,6 +1761,11 @@ class GanttChart {
             }
             
             showTimeout = setTimeout(() => {
+                // Eğer tooltip zaten gizleniyorsa, gösterilmesini iptal et
+                if (isHiding || hideTimeout) {
+                    return;
+                }
+                
                 const tooltipElement = createTooltip();
                 console.log('📦 Tooltip oluşturuldu:', tooltipElement);
                 
@@ -1729,11 +1774,14 @@ class GanttChart {
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
                 
-                // Tooltip'i görünür yap - önce class ekle
-                tooltipElement.classList.add('visible');
-                
                 // DOM'a eklenmesini bekle ve boyutları al
-                setTimeout(() => {
+                // Önce pozisyonu ayarla, sonra görünür yap
+                requestAnimationFrame(() => {
+                    // Eğer tooltip gizleniyorsa veya DOM'da değilse, gösterilmesini iptal et
+                    if (isHiding || hideTimeout || !tooltipElement.parentNode) {
+                        return;
+                    }
+                    
                     const tooltipRect = tooltipElement.getBoundingClientRect();
                     console.log('📐 Tooltip boyutları:', {
                         width: tooltipRect.width,
@@ -1760,9 +1808,12 @@ class GanttChart {
                         top = rect.top - tooltipRect.height - 10;
                     }
                     
-                    // Pozisyonu ayarla ve görünür yap - !important ile CSS'i override et
+                    // Önce pozisyonu ayarla (görünmez durumda)
                     tooltipElement.style.setProperty('left', `${left}px`, 'important');
                     tooltipElement.style.setProperty('top', `${top}px`, 'important');
+                    
+                    // Sonra görünür yap - !important ile CSS'i override et
+                    tooltipElement.classList.add('visible');
                     tooltipElement.style.setProperty('opacity', '1', 'important');
                     tooltipElement.style.setProperty('visibility', 'visible', 'important');
                     tooltipElement.style.setProperty('display', 'block', 'important');
@@ -1775,21 +1826,31 @@ class GanttChart {
                         visibility: window.getComputedStyle(tooltipElement).visibility,
                         zIndex: window.getComputedStyle(tooltipElement).zIndex
                     });
-                }, 50);
+                });
             }, 200);
         };
         
         // Tooltip'i gizle
         const hideTooltip = () => {
+            // Zaten gizleniyorsa, tekrar gizleme
+            if (isHiding) {
+                return;
+            }
+            
             if (showTimeout) {
                 clearTimeout(showTimeout);
                 showTimeout = null;
             }
             
             if (tooltip) {
+                isHiding = true;
                 tooltip.classList.remove('visible');
                 tooltip.style.opacity = '0';
                 tooltip.style.visibility = 'hidden';
+                // Pozisyonu da gizle - sol üstte görünmesini önle
+                tooltip.style.setProperty('left', '-9999px', 'important');
+                tooltip.style.setProperty('top', '-9999px', 'important');
+                tooltip.style.setProperty('display', 'none', 'important');
                 hideTimeout = setTimeout(() => {
                     if (tooltip && !tooltip.classList.contains('visible')) {
                         if (tooltip.parentNode) {
@@ -1797,7 +1858,10 @@ class GanttChart {
                         }
                         tooltip = null;
                     }
+                    isHiding = false;
                 }, 200);
+            } else {
+                isHiding = false;
             }
         };
         
@@ -1815,7 +1879,8 @@ class GanttChart {
         });
         
         jobCard.addEventListener('mousemove', (e) => {
-            if (tooltip && tooltip.classList.contains('visible')) {
+            // Tooltip görünür ve DOM'da ise pozisyonu güncelle
+            if (tooltip && tooltip.classList.contains('visible') && tooltip.parentNode) {
                 // Pozisyonu güncelle
                 const rect = jobCard.getBoundingClientRect();
                 const tooltipRect = tooltip.getBoundingClientRect();
@@ -1835,8 +1900,9 @@ class GanttChart {
                     top = rect.top - tooltipRect.height - 10;
                 }
                 
-                tooltip.style.left = `${left}px`;
-                tooltip.style.top = `${top}px`;
+                // Pozisyonu güncelle - sadece görünür durumda
+                tooltip.style.setProperty('left', `${left}px`, 'important');
+                tooltip.style.setProperty('top', `${top}px`, 'important');
             }
         }, true);
     }
@@ -1881,9 +1947,219 @@ class GanttChart {
     }
 
     /**
+     * Job card için drag and drop kurulumu
+     */
+    setupJobCardDragAndDrop(jobCard, plan) {
+        let isDragging = false;
+        let dragStartCell = null;
+        
+        // Drag başlangıcı
+        jobCard.addEventListener('dragstart', (e) => {
+            isDragging = true;
+            dragStartCell = jobCard.closest('.gantt-day-cell');
+            
+            // Drag görselini ayarla
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', ''); // Bazı tarayıcılar için gerekli
+            
+            // Job card'ı yarı saydam yap
+            jobCard.style.opacity = '0.5';
+            
+            // Tüm hücrelere drop zone görseli ekle
+            const allCells = document.querySelectorAll('.gantt-day-cell');
+            allCells.forEach(cell => {
+                if (cell !== dragStartCell) {
+                    cell.classList.add('gantt-drop-zone-active');
+                }
+            });
+        });
+        
+        // Drag bitişi
+        jobCard.addEventListener('dragend', (e) => {
+            isDragging = false;
+            jobCard.style.opacity = '1';
+            
+            // Tüm hücrelerden drop zone görselini kaldır
+            const allCells = document.querySelectorAll('.gantt-day-cell');
+            allCells.forEach(cell => {
+                cell.classList.remove('gantt-drop-zone-active', 'gantt-drop-zone-hover');
+            });
+        });
+    }
+    
+    /**
+     * Hücre için drop zone kurulumu
+     */
+    setupCellDropZone(cell) {
+        // Drag over - drop zone'u vurgula
+        cell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Hover efekti ekle
+            if (!cell.classList.contains('gantt-drop-zone-hover')) {
+                cell.classList.add('gantt-drop-zone-hover');
+            }
+        });
+        
+        // Drag leave - hover efektini kaldır
+        cell.addEventListener('dragleave', (e) => {
+            cell.classList.remove('gantt-drop-zone-hover');
+        });
+        
+        // Drop - iş kartını buraya taşı
+        cell.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            cell.classList.remove('gantt-drop-zone-hover', 'gantt-drop-zone-active');
+            
+            // Sürüklenen job card'ı bul
+            const draggedJobCard = document.querySelector('.gantt-job-card[style*="opacity: 0.5"]');
+            if (!draggedJobCard) return;
+            
+            // Eski hücreden job card'ı kaldır
+            const oldCell = draggedJobCard.parentElement;
+            if (oldCell === cell) {
+                // Aynı hücreye bırakıldı, işlem yapma
+                draggedJobCard.style.opacity = '1';
+                return;
+            }
+            
+            // Yeni tarih ve makine bilgilerini al
+            const newDate = cell.dataset.date || cell.dataset.periodStart;
+            // Orijinal makine adını kullan (normalize edilmiş değil)
+            const newMachine = cell.dataset.machineOriginal || cell.dataset.machine;
+            const planId = draggedJobCard.dataset.planId;
+            const isemriId = draggedJobCard.dataset.isemriId;
+            const planlananMiktar = draggedJobCard.dataset.planlananMiktar;
+            const oldMachine = draggedJobCard.dataset.machineOriginal;
+            
+            if (!newDate || !planId) {
+                console.error('Drop işlemi için gerekli veriler eksik:', { newDate, planId });
+                draggedJobCard.style.opacity = '1';
+                return;
+            }
+            
+            console.log('🔄 Drag and drop işlemi başlatılıyor:', {
+                planId,
+                isemriId,
+                oldDate: draggedJobCard.dataset.date,
+                newDate,
+                oldMachine,
+                newMachine,
+                planlananMiktar
+            });
+            
+            try {
+                // Loading göster
+                draggedJobCard.style.opacity = '0.3';
+                draggedJobCard.style.cursor = 'wait';
+                
+                // API çağrısı - tarih ve makine güncellemesi
+                const updateBody = {
+                    planId: parseInt(planId),
+                    newDate: newDate,
+                    selectedMachine: newMachine || oldMachine
+                };
+                
+                const response = await fetch('/api/planning/update-date', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateBody)
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || result.message || 'Güncelleme başarısız');
+                }
+                
+                console.log('✅ API güncellemesi başarılı:', result);
+                
+                // ultraFastUpdate çağır - güncellenmiş kaydı hazırla
+                if (window.planningApp && typeof window.planningApp.ultraFastUpdate === 'function') {
+                    // Güncellenmiş kayıt bilgilerini hazırla - orijinal makine adını kullan
+                    const updatedRecord = {
+                        isemriId: parseInt(isemriId),
+                        planId: parseInt(planId),
+                        planTarihi: newDate,
+                        planlananMiktar: parseInt(planlananMiktar),
+                        selectedMachine: newMachine || oldMachine, // Orijinal makine adı (normalize edilmiş değil)
+                        isBreakdown: false // Ana kayıt seviyesinde güncelleme
+                    };
+                    
+                    // ultraFastUpdate çağır
+                    await window.planningApp.ultraFastUpdate([updatedRecord]);
+                    console.log('✅ ultraFastUpdate tamamlandı');
+                    
+                    // Gantt chart'ı yeniden yükle - tooltip ve görünümü güncelle
+                    // ultraFastUpdate sonrası veriler güncellendi, grid'i yeniden yükle
+                    setTimeout(async () => {
+                        // Sadece verileri yeniden yükle (API çağrısı yapmadan, cache'den al)
+                        // ultraFastUpdate zaten cache'i güncelledi, sadece grid'i yeniden oluştur
+                        await this.loadPlanningData();
+                        console.log('✅ Gantt chart verileri yenilendi');
+                    }, 100);
+                }
+                
+                // Job card'ı yeni hücreye taşı
+                draggedJobCard.style.opacity = '1';
+                draggedJobCard.style.cursor = '';
+                
+                // Eski hücreden kaldır
+                if (oldCell) {
+                    oldCell.removeChild(draggedJobCard);
+                }
+                
+                // Yeni hücreye ekle
+                cell.appendChild(draggedJobCard);
+                
+                // Dataset'i güncelle - orijinal makine adını kullan
+                draggedJobCard.dataset.date = newDate;
+                // Normalize edilmiş makine adını dataset.machine'e kaydet (eşleştirme için)
+                const newMachineNormalized = this.normalizeMachineName(newMachine || oldMachine);
+                draggedJobCard.dataset.machine = newMachineNormalized;
+                // Orijinal makine adını dataset.machineOriginal'a kaydet
+                draggedJobCard.dataset.machineOriginal = newMachine || oldMachine;
+                
+                // Görsel geri bildirim
+                cell.style.backgroundColor = 'rgba(76, 175, 80, 0.2)';
+                setTimeout(() => {
+                    cell.style.backgroundColor = '';
+                }, 1000);
+                
+                console.log('✅ Drag and drop işlemi tamamlandı');
+                
+            } catch (error) {
+                console.error('❌ Drag and drop hatası:', error);
+                
+                // Hata durumunda job card'ı eski haline getir
+                draggedJobCard.style.opacity = '1';
+                draggedJobCard.style.cursor = '';
+                
+                // Hata mesajı göster
+                if (window.planningApp && typeof window.planningApp.showError === 'function') {
+                    window.planningApp.showError('Sürükleme işlemi başarısız: ' + error.message);
+                } else {
+                    alert('Sürükleme işlemi başarısız: ' + error.message);
+                }
+            }
+        });
+    }
+
+    /**
      * Zaman çizelgesini temizler
      */
     clearTimeline() {
+        // Tüm tooltip'leri temizle
+        const allTooltips = document.querySelectorAll('.gantt-job-tooltip');
+        allTooltips.forEach(tooltip => {
+            if (tooltip.parentNode) {
+                tooltip.parentNode.removeChild(tooltip);
+            }
+        });
+        
         const chartArea = document.getElementById('gantt-chart-area');
         const panelHeader = document.getElementById('gantt-chart-panel-header');
         
@@ -1954,6 +2230,15 @@ class GanttChart {
      */
     hide() {
         if (this.container) {
+            // Tüm tooltip'leri temizle - Gantt chart kapatıldığında tooltip'lerin kalmasını önle
+            const allTooltips = document.querySelectorAll('.gantt-job-tooltip');
+            allTooltips.forEach(tooltip => {
+                if (tooltip.parentNode) {
+                    tooltip.parentNode.removeChild(tooltip);
+                }
+            });
+            console.log(`✅ ${allTooltips.length} tooltip temizlendi`);
+            
             this.container.style.display = 'none';
             
             // Ana header ve footer'ı tekrar göster
