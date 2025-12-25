@@ -437,8 +437,8 @@ class GanttChart {
   background: linear-gradient(145deg, rgba(8, 47, 73, 0.98), rgba(15, 23, 42, 0.98));
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 1),
-    0 0 12px rgba(56, 189, 248, 0.35),
-    0 10px 26px rgba(15, 23, 42, 0.85);
+    0 0 20px rgba(56, 189, 248, 0.75),
+    0 14px 40px rgba(15, 23, 42, 0.98);
   color: #e5e7eb;
   font-size: 11px;
   display: flex;
@@ -452,9 +452,9 @@ class GanttChart {
 .gantt-job-card:hover {
   transform: translateY(-1px);
   box-shadow:
-    0 0 0 1px rgba(191, 219, 254, 0.7),
-    0 0 18px rgba(56, 189, 248, 0.55),
-    0 16px 40px rgba(15, 23, 42, 0.95);
+    0 0 0 1px rgba(191, 219, 254, 0.95),
+    0 0 30px rgba(56, 189, 248, 0.95),
+    0 22px 55px rgba(15, 23, 42, 1);
 }
 
 .gantt-job-card-header {
